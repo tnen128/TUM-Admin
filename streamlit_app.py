@@ -231,7 +231,7 @@ sender_name = st.sidebar.text_input("Sender Name", "Prof. Example")
 sender_profession = st.sidebar.text_input("Sender Profession", "Professor")
 language = st.sidebar.selectbox("Language", ["English", "German"])
 
-prompt = st.text_area("Enter your prompt or announcement details:")
+prompt = st.text_area("Enter your prompt or announcement details:", value="")
 
 if st.button("Generate Document"):
     if not GOOGLE_API_KEY:
