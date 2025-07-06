@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from document_models import DocumentType, ToneType
 from llm_service import LLMService
 from export_service import DocumentExporter
+import asyncio
 
 # Load environment variables for local dev
 load_dotenv()
@@ -234,19 +235,19 @@ if submitted and prompt:
                 last_doc = st.session_state.document_history[-1]
                 doc_type_val = last_doc.get("type", doc_type)
                 tone_val = last_doc.get("tone", tone)
-                # Send the full document history for context
                 history_docs = [d["content"] for d in st.session_state.document_history]
-                # Use the dedicated refinement prompt
-                refined_chunks = []
-                for chunk in llm.refine_document(
-                    current_document=last_doc["content"],
-                    refinement_prompt=prompt,
-                    doc_type=DocumentType(doc_type_val),
-                    tone=ToneType(tone_val),
-                    history=history_docs
-                ):
-                    refined_chunks.append(chunk["document"])
-                full_response = "".join(refined_chunks)
+                async def get_refined_chunks():
+                    chunks = []
+                    async for chunk in llm.refine_document(
+                        current_document=last_doc["content"],
+                        refinement_prompt=prompt,
+                        doc_type=DocumentType(doc_type_val),
+                        tone=ToneType(tone_val),
+                        history=history_docs
+                    ):
+                        chunks.append(chunk["document"])
+                    return "".join(chunks)
+                full_response = asyncio.run(get_refined_chunks())
                 if full_response:
                     st.session_state.current_document = full_response
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
@@ -257,7 +258,6 @@ if submitted and prompt:
                         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
             else:
-                # No previous document, generate new
                 result = llm.generate_document(
                     doc_type=DocumentType(doc_type),
                     tone=ToneType(tone),
