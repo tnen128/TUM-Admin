@@ -1,0 +1,11 @@
+streamlit
+requests
+python-dotenv
+uvicorn
+fastapi
+pydantic
+fpdf
+python-docx
+langchain
+langchain-google-genai
+google-generativeai 
