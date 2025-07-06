@@ -111,7 +111,7 @@ with chat_container:
 
 # --- Input Container ---
 with st.form("chat_form", clear_on_submit=True):
-    prompt = st.text_area("Your message", key="prompt_input", height=50)
+    prompt = st.text_area("Your message", key="prompt_input", height=68)
     submitted = st.form_submit_button("Send ✉️", disabled=st.session_state.is_generating)
 
 if submitted and prompt:
