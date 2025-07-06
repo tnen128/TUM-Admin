@@ -223,8 +223,6 @@ with st.form("chat_form", clear_on_submit=True):
     submitted = st.form_submit_button("Send ✉️", disabled=st.session_state.is_generating)
 
 if submitted and prompt:
-    st.write("Prompt submitted:", prompt)
-    st.write("GOOGLE_API_KEY present:", bool(GOOGLE_API_KEY))
     st.session_state.is_generating = True
     st.session_state.typing = True
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -247,7 +245,6 @@ if submitted and prompt:
                     sender_profession=sender_profession,
                     language=language
                 )
-                st.write("LLM refined result:", refined)
                 if refined:
                     full_response = refined["document"]
                     st.session_state.current_document = full_response
@@ -269,7 +266,6 @@ if submitted and prompt:
                     sender_profession=sender_profession,
                     language=language
                 )
-                st.write("LLM result:", result)
                 if result:
                     full_response = result["document"]
                     st.session_state.current_document = full_response
