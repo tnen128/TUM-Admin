@@ -110,63 +110,64 @@ with chat_container:
         st.markdown("<i>Assistant is typing...</i>", unsafe_allow_html=True)
 
 # --- Input Container ---
-with st.container():
+with st.form("chat_form", clear_on_submit=True):
     prompt = st.text_area("", placeholder="Type your message here...", key="prompt_input", height=50)
-    if st.button("Send ✉️", key="send_button", disabled=st.session_state.is_generating):
-        if st.session_state["prompt_input"]:
-            st.session_state.is_generating = True
-            st.session_state.typing = True
-            st.session_state.messages.append({"role": "user", "content": st.session_state["prompt_input"]})
-            with st.spinner(""):
-                # If there is a previous document, treat as refinement
-                if st.session_state.document_history:
-                    last_doc = st.session_state.document_history[-1]
-                    doc_type_val = last_doc.get("type", doc_type)
-                    tone_val = last_doc.get("tone", tone)
-                    # Send the full document history for context
-                    history_docs = [d["content"] for d in st.session_state.document_history]
-                    llm = LLMService(api_key=GOOGLE_API_KEY)
-                    refined = llm.generate_document(
-                        doc_type=DocumentType(doc_type_val),
-                        tone=ToneType(tone_val),
-                        prompt=st.session_state["prompt_input"],
-                        additional_context="\n".join(history_docs),
-                        sender_name=sender_name,
-                        sender_profession=sender_profession,
-                        language=language
-                    )
-                    if refined:
-                        full_response = refined["document"]
-                        st.session_state.current_document = full_response
-                        st.session_state.messages.append({"role": "assistant", "content": full_response})
-                        st.session_state.document_history.append({
-                            "type": doc_type_val,
-                            "tone": tone_val,
-                            "content": full_response,
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        })
-                else:
-                    # No previous document, generate new
-                    llm = LLMService(api_key=GOOGLE_API_KEY)
-                    result = llm.generate_document(
-                        doc_type=DocumentType(doc_type),
-                        tone=ToneType(tone),
-                        prompt=st.session_state["prompt_input"],
-                        sender_name=sender_name,
-                        sender_profession=sender_profession,
-                        language=language
-                    )
-                    if result:
-                        full_response = result["document"]
-                        st.session_state.current_document = full_response
-                        st.session_state.messages.append({"role": "assistant", "content": full_response})
-                        st.session_state.document_history.append({
-                            "type": doc_type,
-                            "tone": tone,
-                            "content": full_response,
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        })
-            st.session_state.is_generating = False
-            st.session_state.typing = False
-            st.session_state["prompt_input"] = ""  # Clear input after sending
-            st.experimental_rerun() 
+    submitted = st.form_submit_button("Send ✉️", disabled=st.session_state.is_generating)
+
+if submitted and prompt:
+    st.session_state.is_generating = True
+    st.session_state.typing = True
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.spinner(""):
+        # If there is a previous document, treat as refinement
+        if st.session_state.document_history:
+            last_doc = st.session_state.document_history[-1]
+            doc_type_val = last_doc.get("type", doc_type)
+            tone_val = last_doc.get("tone", tone)
+            # Send the full document history for context
+            history_docs = [d["content"] for d in st.session_state.document_history]
+            llm = LLMService(api_key=GOOGLE_API_KEY)
+            refined = llm.generate_document(
+                doc_type=DocumentType(doc_type_val),
+                tone=ToneType(tone_val),
+                prompt=prompt,
+                additional_context="\n".join(history_docs),
+                sender_name=sender_name,
+                sender_profession=sender_profession,
+                language=language
+            )
+            if refined:
+                full_response = refined["document"]
+                st.session_state.current_document = full_response
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.session_state.document_history.append({
+                    "type": doc_type_val,
+                    "tone": tone_val,
+                    "content": full_response,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+        else:
+            # No previous document, generate new
+            llm = LLMService(api_key=GOOGLE_API_KEY)
+            result = llm.generate_document(
+                doc_type=DocumentType(doc_type),
+                tone=ToneType(tone),
+                prompt=prompt,
+                sender_name=sender_name,
+                sender_profession=sender_profession,
+                language=language
+            )
+            if result:
+                full_response = result["document"]
+                st.session_state.current_document = full_response
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.session_state.document_history.append({
+                    "type": doc_type,
+                    "tone": tone,
+                    "content": full_response,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+    st.session_state.is_generating = False
+    st.session_state.typing = False
+    st.session_state["prompt_input"] = ""  # Clear input after sending
+    st.experimental_rerun() 
