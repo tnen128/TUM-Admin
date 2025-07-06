@@ -111,7 +111,7 @@ with chat_container:
 
 # --- Input Container ---
 with st.form("chat_form", clear_on_submit=True):
-    prompt = st.text_area("", placeholder="Type your message here...", key="prompt_input", height=50)
+    prompt = st.text_area("Your message", key="prompt_input", height=50)
     submitted = st.form_submit_button("Send ✉️", disabled=st.session_state.is_generating)
 
 if submitted and prompt:
@@ -168,6 +168,4 @@ if submitted and prompt:
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
     st.session_state.is_generating = False
-    st.session_state.typing = False
-    st.session_state["prompt_input"] = ""  # Clear input after sending
-    st.experimental_rerun() 
+    st.session_state.typing = False 
