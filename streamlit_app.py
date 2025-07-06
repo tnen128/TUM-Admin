@@ -27,6 +27,8 @@ if "show_preview" not in st.session_state:
     st.session_state.show_preview = False
 if "preview_doc_idx" not in st.session_state:
     st.session_state.preview_doc_idx = None
+if "prompt_input" not in st.session_state:
+    st.session_state["prompt_input"] = ""
 
 # --- Sidebar: Document Settings & History ---
 with st.sidebar:
@@ -109,12 +111,12 @@ with chat_container:
 
 # --- Input Container ---
 with st.container():
-    prompt = st.text_area("", placeholder="Type your message here...", key=f"prompt_input_{st.session_state.input_key}", height=50)
+    prompt = st.text_area("", placeholder="Type your message here...", key="prompt_input", height=50)
     if st.button("Send ✉️", key="send_button", disabled=st.session_state.is_generating):
-        if prompt:
+        if st.session_state["prompt_input"]:
             st.session_state.is_generating = True
             st.session_state.typing = True
-            st.session_state.messages.append({"role": "user", "content": prompt})
+            st.session_state.messages.append({"role": "user", "content": st.session_state["prompt_input"]})
             with st.spinner(""):
                 # If there is a previous document, treat as refinement
                 if st.session_state.document_history:
@@ -127,7 +129,7 @@ with st.container():
                     refined = llm.generate_document(
                         doc_type=DocumentType(doc_type_val),
                         tone=ToneType(tone_val),
-                        prompt=prompt,
+                        prompt=st.session_state["prompt_input"],
                         additional_context="\n".join(history_docs),
                         sender_name=sender_name,
                         sender_profession=sender_profession,
@@ -149,7 +151,7 @@ with st.container():
                     result = llm.generate_document(
                         doc_type=DocumentType(doc_type),
                         tone=ToneType(tone),
-                        prompt=prompt,
+                        prompt=st.session_state["prompt_input"],
                         sender_name=sender_name,
                         sender_profession=sender_profession,
                         language=language
@@ -166,5 +168,5 @@ with st.container():
                         })
             st.session_state.is_generating = False
             st.session_state.typing = False
-            st.session_state.input_key += 1
+            st.session_state["prompt_input"] = ""  # Clear input after sending
             st.experimental_rerun() 
