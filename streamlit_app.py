@@ -98,16 +98,124 @@ if st.session_state.show_preview and st.session_state.preview_doc_idx is not Non
     )
     st.button("Close Preview", on_click=lambda: (st.session_state.update({"show_preview": False, "preview_doc_idx": None})), key="close_preview_btn", help="Close this preview")
 
-# --- Main Chat Interface ---
-st.title("TUM Admin Assistant 🤖")
-chat_container = st.container()
-with chat_container:
-    for message in st.session_state.messages:
-        st.markdown(f"""
-        <div style='margin-bottom: 1rem;'><b>{'👤' if message['role'] == 'user' else '🤖'}:</b> {message['content']}</div>
-        """, unsafe_allow_html=True)
-    if st.session_state.typing:
-        st.markdown("<i>Assistant is typing...</i>", unsafe_allow_html=True)
+# --- Add Custom CSS for Modern Chat UI ---
+st.markdown("""
+<style>
+.tum-chat-container {
+    max-width: 700px;
+    margin: 2rem auto 1rem auto;
+    padding: 1.5rem 2rem;
+    background: #f8f9fa;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 32px rgba(0,100,170,0.08);
+}
+.tum-chat-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #0064AA;
+    margin-bottom: 1.2rem;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+.tum-chat-message {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1.2rem;
+}
+.tum-chat-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #0064AA;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-right: 0.8rem;
+    flex-shrink: 0;
+}
+.tum-chat-bubble {
+    padding: 1.1rem 1.3rem;
+    border-radius: 1.2rem;
+    font-size: 1.08rem;
+    line-height: 1.7;
+    background: #fff;
+    color: #222;
+    box-shadow: 0 2px 8px rgba(0,100,170,0.07);
+    max-width: 80%;
+    word-break: break-word;
+}
+.tum-chat-message.user .tum-chat-bubble {
+    background: #0064AA;
+    color: #fff;
+    margin-left: auto;
+}
+.tum-chat-message.user .tum-chat-avatar {
+    background: #e6e6e6;
+    color: #0064AA;
+    margin-left: 0.8rem;
+    margin-right: 0;
+}
+.tum-chat-message.assistant .tum-chat-bubble {
+    background: #e6e6e6;
+    color: #222;
+}
+.tum-chat-input-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.7rem;
+    margin-top: 2rem;
+    background: #fff;
+    border-radius: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0,100,170,0.07);
+    padding: 1.1rem 1.3rem;
+}
+.tum-chat-input-box textarea {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 1.08rem;
+    background: transparent;
+    resize: none;
+    color: #222;
+}
+.tum-chat-send-btn {
+    background: #0064AA;
+    color: #fff;
+    border: none;
+    border-radius: 1rem;
+    padding: 0.7rem 1.5rem;
+    font-size: 1.08rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.tum-chat-send-btn:disabled {
+    background: #e6e6e6;
+    color: #aaa;
+    cursor: not-allowed;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# --- Main Chat UI ---
+st.markdown('<div class="tum-chat-container">', unsafe_allow_html=True)
+st.markdown('<div class="tum-chat-title">TUM Admin Assistant <span>🎓</span></div>', unsafe_allow_html=True)
+for message in st.session_state.messages:
+    role = message["role"]
+    avatar = "👤" if role == "user" else "🤖"
+    bubble_class = "user" if role == "user" else "assistant"
+    st.markdown(f"""
+    <div class="tum-chat-message {bubble_class}">
+        <div class="tum-chat-avatar">{avatar}</div>
+        <div class="tum-chat-bubble">{message['content']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+if st.session_state.typing:
+    st.markdown("<div class='tum-chat-message assistant'><div class='tum-chat-avatar'>🤖</div><div class='tum-chat-bubble'><i>Assistant is typing...</i></div></div>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Input Container ---
 with st.form("chat_form", clear_on_submit=True):
