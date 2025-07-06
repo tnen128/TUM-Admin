@@ -1,290 +1,170 @@
 import streamlit as st
-import requests
-from dotenv import load_dotenv
 import os
-import base64
 from datetime import datetime
-import json
-from typing import Dict, Any
-import time
-import io
-
+from dotenv import load_dotenv
 from document_models import DocumentType, ToneType
 from llm_service import LLMService
 from export_service import DocumentExporter
 
 # Load environment variables for local dev
 load_dotenv()
-
-# Use Streamlit secrets for deployment, fallback to env vars
 GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY"))
-BACKEND_URL = st.secrets.get("BACKEND_URL", os.getenv("BACKEND_URL", "http://localhost:8000"))
 
-# Configure the page
-st.set_page_config(
-    page_title="TUM Admin Assistant",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# --- Session State Initialization ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "current_document" not in st.session_state:
+    st.session_state.current_document = None
+if "document_history" not in st.session_state:
+    st.session_state.document_history = []
+if "is_generating" not in st.session_state:
+    st.session_state.is_generating = False
+if "typing" not in st.session_state:
+    st.session_state.typing = False
+if "input_key" not in st.session_state:
+    st.session_state.input_key = 0
+if "show_preview" not in st.session_state:
+    st.session_state.show_preview = False
+if "preview_doc_idx" not in st.session_state:
+    st.session_state.preview_doc_idx = None
 
-# # Custom CSS for TUM-branded chat interface
-# st.markdown("""
-# <style>
-#     /* TUM Colors */
-#     :root {
-#         --tum-blue: #0064AA;
-#         --tum-light-blue: #0077B6;
-#         --tum-dark-blue: #003359;
-#         --tum-gray: #E6E6E6;
-#         --tum-dark-gray: #333333;
-#     }
+# --- Sidebar: Document Settings & History ---
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/c/c8/Logo_of_the_Technical_University_of_Munich.svg", width=150)
+    st.markdown("### Document Settings")
+    doc_type = st.selectbox(
+        "📄 Document Type",
+        options=[dt.value for dt in DocumentType],
+        format_func=lambda x: x.replace("_", " ").title()
+    )
+    tone = st.selectbox(
+        "🎭 Tone",
+        options=[t.value for t in ToneType],
+        format_func=lambda x: x.replace("_", " ").title()
+    )
+    sender_name = st.text_input("Sender Name", value="")
+    sender_profession = st.text_input("Sender Profession", value="")
+    language = st.selectbox("Language", options=["English", "German", "Both"], index=0)
+    st.markdown("---")
+    st.markdown("### 📜 Document History")
+    doc_counts = {}
+    for doc in st.session_state.document_history:
+        key = (doc.get('type', 'Unknown'), doc.get('tone', 'Neutral'))
+        doc_counts[key] = doc_counts.get(key, 0) + 1
+        doc['doc_number'] = doc_counts[key]
+    for idx, doc in enumerate(reversed(st.session_state.document_history)):
+        title = f"[{doc.get('type', 'Unknown')}_{doc.get('tone', 'Neutral')}_{doc['doc_number']}]"
+        st.markdown(f"**{title}**\n{doc['content'][:100]}{'...' if len(doc['content']) > 100 else ''}")
+        col1, col2, col3 = st.columns([1,1,1])
+        with col1:
+            if st.button("👁️ Preview", key=f"preview_{idx}"):
+                st.session_state.show_preview = True
+                st.session_state.preview_doc_idx = idx
+        with col2:
+            exporter = DocumentExporter()
+            pdf_bytes = exporter.export_to_pdf(doc['content'], {"doc_type": doc.get('type'), "tone": doc.get('tone')})
+            with open(pdf_bytes, "rb") as f:
+                st.download_button(
+                    label="📑 PDF",
+                    data=f,
+                    file_name=f"TUM_{doc.get('type', 'Document')}_{doc.get('tone', 'Neutral')}.pdf",
+                    mime="application/pdf",
+                    key=f"download_pdf_{idx}"
+                )
+        with col3:
+            docx_bytes = exporter.export_to_docx(doc['content'], {"doc_type": doc.get('type'), "tone": doc.get('tone')})
+            with open(docx_bytes, "rb") as f:
+                st.download_button(
+                    label="📘 DOCX",
+                    data=f,
+                    file_name=f"TUM_{doc.get('type', 'Document')}_{doc.get('tone', 'Neutral')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key=f"download_docx_{idx}"
+                )
 
-#     /* Main container styling */
-#     .main {
-#         padding: 0;
-#         background-color: #f8f9fa;
-#         height: 100vh;
-#         display: flex;
-#         flex-direction: column;
-#     }
+# --- Document Preview Modal ---
+if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
+    doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
+    st.markdown(
+        f'''<div style="background: #23272b; border-radius: 1.2rem; box-shadow: 0 12px 48px rgba(0,100,170,0.22); max-width: 900px; margin: 3% auto 2rem auto; padding: 2.7rem 2.5rem 2.2rem 2.5rem; border: 2.5px solid #0064AA;">
+        <div style="font-size: 1.5rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; margin-bottom: 1.5rem; text-align: left;">
+            📢 Announcement Preview
+        </div>
+        <div style="background: #181c20; border-radius: 0.9rem; padding: 1.6rem 1.3rem; color: #f5f5f5; font-size: 1.18rem; line-height: 1.8; min-height: 260px; max-height: 600px; overflow-y: auto; white-space: pre-wrap; border: 1px solid #333;">
+        {doc['content'].replace('<','&lt;').replace('>','&gt;').rstrip('</div>').rstrip()}</div></div>''',
+        unsafe_allow_html=True
+    )
+    st.button("Close Preview", on_click=lambda: (st.session_state.update({"show_preview": False, "preview_doc_idx": None})), key="close_preview_btn", help="Close this preview")
 
-#     .stApp {
-#         max-width: 100%;
-#         padding: 0;
-#         height: 100vh;
-#     }
+# --- Main Chat Interface ---
+st.title("TUM Admin Assistant 🤖")
+chat_container = st.container()
+with chat_container:
+    for message in st.session_state.messages:
+        st.markdown(f"""
+        <div style='margin-bottom: 1rem;'><b>{'👤' if message['role'] == 'user' else '🤖'}:</b> {message['content']}</div>
+        """, unsafe_allow_html=True)
+    if st.session_state.typing:
+        st.markdown("<i>Assistant is typing...</i>", unsafe_allow_html=True)
 
-#     /* Chat container */
-#     .chat-container {
-#         flex: 1;
-#         overflow-y: auto;
-#         padding: 1rem;
-#         margin-bottom: 80px; /* Space for input container */
-#         display: flex;
-#         flex-direction: column;
-#     }
-
-#     /* Chat messages */
-#     .chat-message {
-#         padding: 1.5rem;
-#         border-radius: 1rem;
-#         margin-bottom: 1rem;
-#         max-width: 80%;
-#         display: flex;
-#         flex-direction: column;
-#         animation: fadeInUp 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-#         transition: box-shadow 0.2s, transform 0.2s;
-#     }
-
-#     @keyframes fadeInUp {
-#         from { opacity: 0; transform: translateY(30px) scale(0.98); }
-#         to { opacity: 1; transform: translateY(0) scale(1); }
-#     }
-
-#     .chat-message.user {
-#         background-color: var(--tum-blue);
-#         color: white;
-#         margin-left: auto;
-#         border-bottom-right-radius: 0.25rem;
-#     }
-
-#     .chat-message.assistant {
-#         background-color: var(--tum-gray);
-#         color: var(--tum-dark-gray);
-#         margin-right: auto;
-#         border-bottom-left-radius: 0.25rem;
-#     }
-
-#     .chat-message .content {
-#         display: flex;
-#         align-items: flex-start;
-#         gap: 0.75rem;
-#     }
-
-#     .chat-message .avatar {
-#         width: 36px;
-#         height: 36px;
-#         border-radius: 50%;
-#         display: flex;
-#         align-items: center;
-#         justify-content: center;
-#         font-size: 1.2rem;
-#         background-color: white;
-#         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-#         flex-shrink: 0;
-#     }
-
-#     .chat-message .message {
-#         flex: 1;
-#         white-space: pre-wrap;
-#         line-height: 1.6;
-#         font-size: 1rem;
-#     }
-
-#     /* Input container */
-#     .input-container {
-#         position: fixed;
-#         bottom: 0;
-#         left: 0;
-#         right: 0;
-#         padding: 1rem;
-#         background-color: white;
-#         border-top: 1px solid var(--tum-gray);
-#         display: flex;
-#         gap: 1rem;
-#         align-items: center;
-#         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-#         z-index: 100;
-#     }
-
-#     .input-container textarea {
-#         flex: 1;
-#         background-color: white;
-#         color: var(--tum-dark-gray);
-#         border: 2px solid var(--tum-gray);
-#         border-radius: 1rem;
-#         padding: 0.75rem 1rem;
-#         resize: none;
-#         height: 50px;
-#         transition: all 0.3s ease;
-#         font-size: 1rem;
-#         line-height: 1.5;
-#     }
-
-#     .input-container textarea:focus {
-#         border-color: var(--tum-blue);
-#         box-shadow: 0 0 0 2px rgba(0, 100, 170, 0.1);
-#         outline: none;
-#     }
-
-#     .input-container button {
-#         background-color: var(--tum-blue);
-#         color: white;
-#         border: none;
-#         padding: 0.75rem 1.5rem;
-#         border-radius: 1rem;
-#         cursor: pointer;
-#         display: flex;
-#         align-items: center;
-#         gap: 0.5rem;
-#         transition: all 0.3s ease;
-#         font-weight: 600;
-#         font-size: 1rem;
-#         height: 50px;
-#     }
-
-#     .input-container button:hover {
-#         background-color: var(--tum-light-blue);
-#         transform: translateY(-1px);
-#     }
-
-#     .input-container button:disabled {
-#         background-color: var(--tum-gray);
-#         cursor: not-allowed;
-#         transform: none;
-#     }
-
-#     /* Typing indicator */
-#     .typing-indicator {
-#         display: flex;
-#         align-items: center;
-#         gap: 0.5rem;
-#         padding: 0.5rem 1rem;
-#         background-color: var(--tum-gray);
-#         border-radius: 1rem;
-#         margin-bottom: 1rem;
-#         animation: fadeIn 0.3s ease-in-out;
-#         align-self: flex-start;
-#     }
-
-#     .typing-dot {
-#         width: 8px;
-#         height: 8px;
-#         background-color: var(--tum-blue);
-#         border-radius: 50%;
-#         animation: typingAnimation 1.4s infinite ease-in-out;
-#     }
-
-#     .typing-dot:nth-child(1) { animation-delay: 0s; }
-#     .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-#     .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-#     @keyframes typingAnimation {
-#         0%, 60%, 100% { transform: translateY(0); }
-#         30% { transform: translateY(-4px); }
-#     }
-
-#     /* Sidebar styling */
-# </style>
-# """)
-
-# --- (The rest of your Streamlit UI and logic goes here, adapted from app/web/main.py) ---
-# For brevity, only the structure and key logic are shown. You should copy over your UI, chat, and document logic here.
-
-st.title("TUM Admin Assistant")
-
-st.sidebar.header("Settings")
-doc_type = st.sidebar.selectbox("Document Type", [e.value for e in DocumentType])
-tone = st.sidebar.selectbox("Tone", [e.value for e in ToneType])
-sender_name = st.sidebar.text_input("Sender Name", "Prof. Example")
-sender_profession = st.sidebar.text_input("Sender Profession", "Professor")
-language = st.sidebar.selectbox("Language", ["English", "German"])
-
-prompt = st.text_area("Enter your prompt or announcement details:", value="")
-
-if st.button("Generate Document"):
-    if not GOOGLE_API_KEY:
-        st.error("Google API key not set. Please configure it in Streamlit secrets or your .env file.")
-    else:
-        llm = LLMService(api_key=GOOGLE_API_KEY)
-        doc_type_enum = DocumentType(doc_type)
-        tone_enum = ToneType(tone)
-        result = llm.generate_document(
-            doc_type=doc_type_enum,
-            tone=tone_enum,
-            prompt=prompt,
-            sender_name=sender_name,
-            sender_profession=sender_profession,
-            language=language
-        )
-        st.session_state["generated_doc"] = result["document"]
-        st.session_state["generated_metadata"] = result["metadata"]
-        # Add to history
-        if "history" not in st.session_state:
-            st.session_state["history"] = []
-        st.session_state["history"].append({
-            "document": result["document"],
-            "metadata": result["metadata"]
-        })
-        st.success("Document generated!")
-
-if "generated_doc" in st.session_state:
-    st.subheader("Generated Document")
-    st.text_area("Document", st.session_state["generated_doc"], height=300)
-    # Export options
-    exporter = DocumentExporter()
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("Export as PDF"):
-            pdf_path = exporter.export_to_pdf(st.session_state["generated_doc"], st.session_state["generated_metadata"])
-            with open(pdf_path, "rb") as f:
-                st.download_button("Download PDF", f, file_name=pdf_path.split(os.sep)[-1])
-    with col2:
-        if st.button("Export as DOCX"):
-            docx_path = exporter.export_to_docx(st.session_state["generated_doc"], st.session_state["generated_metadata"])
-            with open(docx_path, "rb") as f:
-                st.download_button("Download DOCX", f, file_name=docx_path.split(os.sep)[-1])
-    with col3:
-        if st.button("Export as TXT"):
-            txt_path = exporter.export_to_txt(st.session_state["generated_doc"], st.session_state["generated_metadata"])
-            with open(txt_path, "rb") as f:
-                st.download_button("Download TXT", f, file_name=txt_path.split(os.sep)[-1])
-
-# Document history
-if "history" in st.session_state and st.session_state["history"]:
-    st.sidebar.subheader("Document History")
-    for idx, item in enumerate(reversed(st.session_state["history"])):
-        if st.sidebar.button(f"View Document {len(st.session_state['history'])-idx}"):
-            st.session_state["generated_doc"] = item["document"]
-            st.session_state["generated_metadata"] = item["metadata"] 
+# --- Input Container ---
+with st.container():
+    prompt = st.text_area("", placeholder="Type your message here...", key=f"prompt_input_{st.session_state.input_key}", height=50)
+    if st.button("Send ✉️", key="send_button", disabled=st.session_state.is_generating):
+        if prompt:
+            st.session_state.is_generating = True
+            st.session_state.typing = True
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.spinner(""):
+                # If there is a previous document, treat as refinement
+                if st.session_state.document_history:
+                    last_doc = st.session_state.document_history[-1]
+                    doc_type_val = last_doc.get("type", doc_type)
+                    tone_val = last_doc.get("tone", tone)
+                    # Send the full document history for context
+                    history_docs = [d["content"] for d in st.session_state.document_history]
+                    llm = LLMService(api_key=GOOGLE_API_KEY)
+                    refined = llm.generate_document(
+                        doc_type=DocumentType(doc_type_val),
+                        tone=ToneType(tone_val),
+                        prompt=prompt,
+                        additional_context="\n".join(history_docs),
+                        sender_name=sender_name,
+                        sender_profession=sender_profession,
+                        language=language
+                    )
+                    if refined:
+                        full_response = refined["document"]
+                        st.session_state.current_document = full_response
+                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                        st.session_state.document_history.append({
+                            "type": doc_type_val,
+                            "tone": tone_val,
+                            "content": full_response,
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                else:
+                    # No previous document, generate new
+                    llm = LLMService(api_key=GOOGLE_API_KEY)
+                    result = llm.generate_document(
+                        doc_type=DocumentType(doc_type),
+                        tone=ToneType(tone),
+                        prompt=prompt,
+                        sender_name=sender_name,
+                        sender_profession=sender_profession,
+                        language=language
+                    )
+                    if result:
+                        full_response = result["document"]
+                        st.session_state.current_document = full_response
+                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                        st.session_state.document_history.append({
+                            "type": doc_type,
+                            "tone": tone,
+                            "content": full_response,
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+            st.session_state.is_generating = False
+            st.session_state.typing = False
+            st.session_state.input_key += 1
+            st.experimental_rerun() 
