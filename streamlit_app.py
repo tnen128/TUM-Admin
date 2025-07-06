@@ -249,14 +249,42 @@ if st.button("Generate Document"):
             language=language
         )
         st.session_state["generated_doc"] = result["document"]
+        st.session_state["generated_metadata"] = result["metadata"]
+        # Add to history
+        if "history" not in st.session_state:
+            st.session_state["history"] = []
+        st.session_state["history"].append({
+            "document": result["document"],
+            "metadata": result["metadata"]
+        })
         st.success("Document generated!")
 
 if "generated_doc" in st.session_state:
     st.subheader("Generated Document")
     st.text_area("Document", st.session_state["generated_doc"], height=300)
-    st.download_button(
-        label="Download as TXT",
-        data=st.session_state["generated_doc"],
-        file_name="TUM_Document.txt"
-    )
-    # Add export options for PDF/DOCX using DocumentExporter if needed 
+    # Export options
+    exporter = DocumentExporter()
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("Export as PDF"):
+            pdf_path = exporter.export_to_pdf(st.session_state["generated_doc"], st.session_state["generated_metadata"])
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF", f, file_name=pdf_path.split(os.sep)[-1])
+    with col2:
+        if st.button("Export as DOCX"):
+            docx_path = exporter.export_to_docx(st.session_state["generated_doc"], st.session_state["generated_metadata"])
+            with open(docx_path, "rb") as f:
+                st.download_button("Download DOCX", f, file_name=docx_path.split(os.sep)[-1])
+    with col3:
+        if st.button("Export as TXT"):
+            txt_path = exporter.export_to_txt(st.session_state["generated_doc"], st.session_state["generated_metadata"])
+            with open(txt_path, "rb") as f:
+                st.download_button("Download TXT", f, file_name=txt_path.split(os.sep)[-1])
+
+# Document history
+if "history" in st.session_state and st.session_state["history"]:
+    st.sidebar.subheader("Document History")
+    for idx, item in enumerate(reversed(st.session_state["history"])):
+        if st.sidebar.button(f"View Document {len(st.session_state['history'])-idx}"):
+            st.session_state["generated_doc"] = item["document"]
+            st.session_state["generated_metadata"] = item["metadata"] 
