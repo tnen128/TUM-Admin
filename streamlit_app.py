@@ -228,6 +228,7 @@ if submitted and prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.spinner(""):
         try:
+            llm = LLMService(api_key=GOOGLE_API_KEY)
             # If there is a previous document, treat as refinement
             if st.session_state.document_history:
                 last_doc = st.session_state.document_history[-1]
@@ -235,18 +236,18 @@ if submitted and prompt:
                 tone_val = last_doc.get("tone", tone)
                 # Send the full document history for context
                 history_docs = [d["content"] for d in st.session_state.document_history]
-                llm = LLMService(api_key=GOOGLE_API_KEY)
-                refined = llm.generate_document(
+                # Use the dedicated refinement prompt
+                refined_chunks = []
+                for chunk in llm.refine_document(
+                    current_document=last_doc["content"],
+                    refinement_prompt=prompt,
                     doc_type=DocumentType(doc_type_val),
                     tone=ToneType(tone_val),
-                    prompt=prompt,
-                    additional_context="\n".join(history_docs),
-                    sender_name=sender_name,
-                    sender_profession=sender_profession,
-                    language=language
-                )
-                if refined:
-                    full_response = refined["document"]
+                    history=history_docs
+                ):
+                    refined_chunks.append(chunk["document"])
+                full_response = "".join(refined_chunks)
+                if full_response:
                     st.session_state.current_document = full_response
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
                     st.session_state.document_history.append({
@@ -257,7 +258,6 @@ if submitted and prompt:
                     })
             else:
                 # No previous document, generate new
-                llm = LLMService(api_key=GOOGLE_API_KEY)
                 result = llm.generate_document(
                     doc_type=DocumentType(doc_type),
                     tone=ToneType(tone),
