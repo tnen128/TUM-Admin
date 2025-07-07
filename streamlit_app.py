@@ -48,7 +48,8 @@ def init_session_state():
         "exported_file_mime": None,
         "message_counter": 0,
         "refinement_mode": False,
-        "current_prompt": ""  # Add this for suggestion handling
+        "current_prompt": "",
+        "form_key": 0
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -224,8 +225,9 @@ def render_input(doc_type):
         cols = st.columns(len(suggested))
         for i, suggestion in enumerate(suggested):
             if cols[i].button(suggestion, key=f"suggestion_{i}_{st.session_state.message_counter}"):
-                # Set the suggestion in session state instead of returning immediately
+                # Store suggestion and increment form key to reset form
                 st.session_state.current_prompt = suggestion
+                st.session_state.form_key += 1
                 st.rerun()
     
     # Clear Chat button OUTSIDE the form
@@ -237,23 +239,23 @@ def render_input(doc_type):
             st.session_state.current_document = None
             st.session_state.show_suggestions = True
             st.session_state.current_prompt = ""
+            st.session_state.form_key += 1
             st.rerun()
     
-    # Input form
-    with st.form(key="message_form", clear_on_submit=True):
+    # Input form with dynamic key to handle suggestions properly
+    with st.form(key=f"message_form_{st.session_state.form_key}"):
         if st.session_state.document_history:
             placeholder_text = "Enter your refinement request (e.g., 'change course name to C++', 'make it more formal', etc.)"
         else:
             placeholder_text = "Enter your prompt to generate a new document..."
         
-        # Use session state value if a suggestion was clicked
+        # Get default value from session state
         default_value = st.session_state.get("current_prompt", "")
         
         prompt = st.text_area(
             "Your message:",
             placeholder=placeholder_text,
             height=100,
-            key="user_input",
             value=default_value
         )
         
@@ -266,8 +268,8 @@ def render_input(doc_type):
         if st.session_state.is_generating:
             st.info("🔄 Generating response...")
     
-    # Clear the current_prompt after form is rendered
-    if st.session_state.get("current_prompt"):
+    # Clear current_prompt after form is processed
+    if send_clicked:
         st.session_state.current_prompt = ""
     
     return send_clicked, prompt
@@ -349,7 +351,7 @@ def main():
         # Input interface
         send_clicked, prompt = render_input(doc_type)
         
-        # Process message
+        # Process message - FIXED LOGIC
         if send_clicked and prompt.strip():
             st.session_state.message_counter += 1
             
@@ -464,7 +466,7 @@ def main():
                 st.rerun()
     
     with col2:
-        # Document preview only
+        # Document preview only (removed current status section)
         if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
             doc = st.session_state.document_history[-(st.session_state.preview_doc_idx + 1)]
             
