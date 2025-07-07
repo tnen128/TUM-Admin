@@ -157,68 +157,74 @@ def render_modal_preview():
         if st.session_state.preview_doc_idx < len(st.session_state.all_responses_history):
             response = st.session_state.all_responses_history[st.session_state.preview_doc_idx]
             
-            # Modal overlay CSS and content
-            st.markdown(f"""
-            <div style="position: fixed; 
-                        top: 0; 
-                        left: 0; 
-                        width: 100%; 
-                        height: 100%; 
-                        background: rgba(0,0,0,0.5); 
-                        z-index: 1000; 
-                        display: flex; 
-                        justify-content: center; 
-                        align-items: flex-start; 
-                        padding-top: 50px;">
-                <div style="background: white; 
-                            border-radius: 15px; 
-                            max-width: 80%; 
-                            max-height: 80%; 
-                            overflow-y: auto; 
-                            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                            position: relative;">
-                    <div style="padding: 30px; border-bottom: 1px solid #eee;">
-                        <h2 style="margin: 0; color: #333;">📖 Document Preview</h2>
-                        <button onclick="window.parent.postMessage('close_preview', '*')" 
-                                style="position: absolute; 
-                                       top: 15px; 
-                                       right: 20px; 
-                                       background: #ff4757; 
-                                       color: white; 
-                                       border: none; 
-                                       border-radius: 50%; 
-                                       width: 30px; 
-                                       height: 30px; 
-                                       cursor: pointer; 
-                                       font-size: 16px;">
-                            ×
-                        </button>
-                    </div>
-                    <div style="padding: 30px;">
-                        <div style="margin-bottom: 20px;">
-                            <strong>Name:</strong> {response['name']}<br>
-                            <strong>Type:</strong> {response['type']}<br>
-                            <strong>Tone:</strong> {response['tone']}<br>
-                            <strong>Created:</strong> {response['timestamp']}
-                        </div>
-                        <hr style="margin: 20px 0;">
-                        <div style="background: #f8f9fa; 
-                                    padding: 20px; 
-                                    border-radius: 10px; 
-                                    white-space: pre-line; 
-                                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-                                    line-height: 1.6;">
-                            {response['content']}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Create a container for the modal
+            modal_container = st.container()
             
-            # Close button functionality
-            if st.button("❌ Close Preview", key="close_modal_preview", help="Close preview window"):
-                close_preview()
-                st.rerun()
+            with modal_container:
+                # Modal overlay using Streamlit components
+                st.markdown("""
+                <style>
+                .modal-backdrop {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 1000;
+                }
+                .modal-content {
+                    position: fixed;
+                    top: 10%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: white;
+                    border-radius: 15px;
+                    max-width: 80%;
+                    max-height: 80%;
+                    overflow-y: auto;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    z-index: 1001;
+                    padding: 0;
+                }
+                </style>
+                <div class="modal-backdrop"></div>
+                """, unsafe_allow_html=True)
+                
+                # Modal content using Streamlit components
+                with st.container():
+                    st.markdown('<div class="modal-content">', unsafe_allow_html=True)
+                    
+                    # Header with close button
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown("## 📖 Document Preview")
+                    with col2:
+                        if st.button("❌ Close", key="close_modal_btn", help="Close preview"):
+                            close_preview()
+                            st.rerun()
+                    
+                    st.markdown("---")
+                    
+                    # Document metadata
+                    st.markdown(f"**Name:** {response['name']}")
+                    st.markdown(f"**Type:** {response['type']}")
+                    st.markdown(f"**Tone:** {response['tone']}")
+                    st.markdown(f"**Created:** {response['timestamp']}")
+                    
+                    st.markdown("---")
+                    
+                    # Document content
+                    st.markdown("**Content:**")
+                    st.text_area(
+                        "Document Content",
+                        value=response['content'],
+                        height=400,
+                        disabled=True,
+                        label_visibility="collapsed"
+                    )
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Sidebar UI ---
 def render_sidebar():
@@ -247,22 +253,11 @@ def render_sidebar():
         if st.session_state.all_responses_history:
             for idx, response in enumerate(reversed(st.session_state.all_responses_history)):
                 with st.expander(f"📄 {response['name']}", expanded=False):
-                    st.markdown(f"**Type:** {response['type']}")
-                    st.markdown(f"**Tone:** {response['tone']}")
-                    st.markdown(f"**Created:** {response['timestamp']}")
-                    st.markdown("---")
-                    
-                    st.text_area(
-                        "Content Preview:",
-                        value=response['content'][:300] + "..." if len(response['content']) > 300 else response['content'],
-                        height=100,
-                        disabled=True,
-                        key=f"all_preview_text_{idx}"
-                    )
-                    
+                    # Only show action buttons - no metadata or preview text
                     col1, col2, col3 = st.columns(3)
+                    
                     with col1:
-                        if st.button("👁️ View Full", key=f"all_preview_btn_{idx}"):
+                        if st.button("👁️ Preview", key=f"all_preview_btn_{idx}"):
                             st.session_state.show_preview = True
                             st.session_state.preview_doc_idx = len(st.session_state.all_responses_history) - 1 - idx
                             st.rerun()
@@ -439,12 +434,29 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Custom CSS for better styling and full-width layout
+    # Custom CSS for better styling and removing colored divs
     st.markdown("""
     <style>
+    /* Remove colored div under title */
     .main > div {
         padding-top: 2rem;
     }
+    
+    /* Remove Streamlit's default colored header */
+    .stApp > header {
+        background: transparent;
+    }
+    
+    /* Remove any colored divs */
+    div[data-testid="stDecoration"] {
+        display: none;
+    }
+    
+    /* Remove colored top bar */
+    .stApp > div:first-child {
+        background: transparent;
+    }
+    
     .stForm {
         background-color: #f8f9fa;
         padding: 1rem;
@@ -463,9 +475,10 @@ def main():
         overflow-y: auto;
         padding: 20px;
         margin-bottom: 20px;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: #ffffff;
         border-radius: 15px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
     }
     .chat-container::-webkit-scrollbar {
         width: 8px;
@@ -481,20 +494,6 @@ def main():
     .chat-container::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
-    /* Modal overlay styles */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        z-index: 1000;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        padding-top: 50px;
-    }
     </style>
     """, unsafe_allow_html=True)
     
@@ -504,7 +503,8 @@ def main():
     init_session_state()
     
     # Render modal preview first (overlay on top)
-    render_modal_preview()
+    if st.session_state.show_preview:
+        render_modal_preview()
     
     # Render sidebar and get settings
     doc_type, tone, sender_name, sender_profession, language = render_sidebar()
