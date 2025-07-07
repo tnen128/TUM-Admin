@@ -279,7 +279,6 @@ def main():
         st.session_state.is_generating = True
         st.session_state["typing"] = True
         st.session_state.messages.append({"role": "user", "content": prompt})
-        st.experimental_rerun()
     if st.session_state.get("typing", False) and st.session_state.is_generating:
         message_placeholder = st.empty()
         with st.spinner(""):
@@ -347,7 +346,6 @@ def main():
                     })
         st.session_state.is_generating = False
         st.session_state["typing"] = False
-        st.experimental_rerun()
     if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
         doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
         st.markdown(
