@@ -148,6 +148,11 @@ def render_chat(messages):
 
 # --- Input UI ---
 def render_input(doc_type):
+    # Clear prompt_input if needed BEFORE rendering the text_area
+    if st.session_state.get("clear_prompt_input", False):
+        st.session_state["prompt_input"] = ""
+        st.session_state["clear_prompt_input"] = False
+
     with st.container():
         st.markdown('<div class="input-container">', unsafe_allow_html=True)
         suggested = SUGGESTED_PROMPTS.get(doc_type, [])
@@ -158,13 +163,20 @@ def render_input(doc_type):
                 if cols[i].button(suggestion, key=f"suggestion_{i}"):
                     st.session_state["prompt_input"] = suggestion
                     st.session_state["selected_suggestion"] = i
-        prompt = st.text_area("", placeholder="Type your message here...", key="prompt_input", height=68)
+        prompt = st.text_area(
+            "Your prompt",  # Non-empty label for accessibility
+            placeholder="Type your message here...",
+            key="prompt_input",
+            height=68,
+            label_visibility="collapsed"  # Hide label visually
+        )
         send_clicked = st.button("Send ✉️", key="send_button", disabled=st.session_state.is_generating)
         st.markdown('</div>', unsafe_allow_html=True)
         return send_clicked, prompt
 
 # --- Main App Logic ---
 def main():
+    st.title("TUM Admin")  # Always show the app title at the top
     st.markdown("""
     <style>
     .tum-chat-container {
@@ -245,7 +257,7 @@ def main():
         st.session_state.is_generating = True
         st.session_state["show_suggestions"] = False
         st.session_state["selected_suggestion"] = None
-        st.session_state["prompt_input"] = ""
+        st.session_state["clear_prompt_input"] = True  # Set flag to clear input on next render
         with st.spinner("Generating response..."):
             llm = LLMService()
             if st.session_state.document_history:
