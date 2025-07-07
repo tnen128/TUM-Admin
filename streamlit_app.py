@@ -146,7 +146,7 @@ def render_chat():
 
 # --- Input UI ---
 def render_input(doc_type):
-    # ✅ Clear input BEFORE rendering the widget
+    # Clear input BEFORE rendering the widget if needed
     if st.session_state.get("clear_prompt_input", False):
         st.session_state["prompt_input"] = ""
         st.session_state["clear_prompt_input"] = False
@@ -174,87 +174,36 @@ def render_input(doc_type):
 
 # --- Main App Logic ---
 def main():
-    st.title("TUM Admin")
+    st.title("TUM Admin")  # Always at the top
     st.markdown("""
     <style>
-    .tum-chat-container {
+    .chat-container {
         max-width: 700px;
-        margin: 2rem auto 1rem auto;
+        margin: 0 auto;
+        margin-top: 1.5rem;
+        margin-bottom: 90px; /* space for input */
+        height: calc(100vh - 180px); /* adjust for title and input */
+        overflow-y: auto;
         padding: 1.5rem 2rem;
         background: #f8f9fa;
         border-radius: 1.5rem;
         box-shadow: 0 4px 32px rgba(0,100,170,0.08);
-        height: 65vh;
-        overflow-y: auto;
-    }
-    .tum-chat-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #0064AA;
-        margin-bottom: 1.2rem;
-        text-align: center;
-        letter-spacing: 0.5px;
-    }
-    .tum-chat-message {
-        display: flex;
-        align-items: flex-start;
-        margin-bottom: 1.2rem;
-    }
-    .tum-chat-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: #0064AA;
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin-right: 0.8rem;
-        flex-shrink: 0;
-    }
-    .tum-chat-bubble {
-        padding: 1.1rem 1.3rem;
-        border-radius: 1.2rem;
-        font-size: 1.08rem;
-        line-height: 1.7;
-        background: #fff;
-        color: #222;
-        box-shadow: 0 2px 8px rgba(0,100,170,0.07);
-        max-width: 80%;
-        word-break: break-word;
-    }
-    .tum-chat-message.user .tum-chat-bubble {
-        background: #0064AA;
-        color: #fff;
-        margin-left: auto;
-    }
-    .tum-chat-message.user .tum-chat-avatar {
-        background: #e6e6e6;
-        color: #0064AA;
-        margin-left: 0.8rem;
-        margin-right: 0;
-    }
-    .tum-chat-message.assistant .tum-chat-bubble {
-        background: #e6e6e6;
-        color: #222;
     }
     .input-container {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
+        max-width: 900px;
+        margin: 0 auto;
         padding: 1rem;
-        background-color: white;
+        background: white;
         border-top: 1px solid #E6E6E6;
+        z-index: 100;
         display: flex;
         gap: 1rem;
         align-items: center;
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-        z-index: 100;
-        max-width: 900px;
-        margin: 0 auto;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -265,13 +214,18 @@ def main():
         st.session_state["selected_suggestion"] = None
         st.session_state["last_doc_type"] = doc_type
         st.session_state["prompt_input"] = ""
+    # Chat area (scrollable, between title and input)
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    render_chat()
+    st.markdown('</div>', unsafe_allow_html=True)
+    # Input always at bottom
     send_clicked, prompt = render_input(doc_type)
     if send_clicked and prompt:
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.session_state.is_generating = True
-        st.session_state["show_suggestions"] = False
+        st.session_state["show_suggestions"] = False  # Hide suggestions after send
         st.session_state["selected_suggestion"] = None
-        st.session_state["clear_prompt_input"] = True
+        st.session_state["clear_prompt_input"] = True  # Clear input after send
         with st.spinner("Generating response..."):
             llm = LLMService()
             if st.session_state.document_history:
@@ -286,10 +240,13 @@ def main():
                     tone=ToneType(tone_val),
                     history=history_docs
                 )
+                # Robustly handle all result types
                 if hasattr(result, '__iter__') and not isinstance(result, str):
                     full_response = "".join(chunk["document"] for chunk in result)
+                elif isinstance(result, dict) and "document" in result:
+                    full_response = result["document"]
                 else:
-                    full_response = result["document"] if isinstance(result, dict) else str(result)
+                    full_response = str(result)
             else:
                 result = llm.generate_document(
                     doc_type=DocumentType(doc_type),
@@ -309,7 +266,6 @@ def main():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
         st.session_state.is_generating = False
-    render_chat()
     # Document Preview Modal (use expander for robust refresh)
     if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
         doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
