@@ -133,18 +133,19 @@ def render_sidebar():
 
 # --- Chat UI ---
 def render_chat(messages):
-    
-    chat_container = st.container()
-    with chat_container:
-        for message in messages:
-            st.markdown(f"""
-            <div class="chat-message {message['role']}">
-                <div class="content">
-                    <div class="avatar">{'👤' if message['role'] == 'user' else '🤖'}</div>
-                    <div class="message">{message['content']}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+    st.markdown('<div class="tum-chat-title">TUM Admin Assistant 🤖</div>', unsafe_allow_html=True)
+    st.markdown('<div class="tum-chat-container" style="height: 65vh; overflow-y: auto;">', unsafe_allow_html=True)
+    for message in messages:
+        role = message['role']
+        avatar = '👤' if role == 'user' else '🤖'
+        bubble_class = 'user' if role == 'user' else 'assistant'
+        st.markdown(f'''
+        <div class="tum-chat-message {bubble_class}">
+            <div class="tum-chat-avatar">{avatar}</div>
+            <div class="tum-chat-bubble">{message['content']}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Input UI ---
 def render_input(doc_type):
@@ -186,6 +187,8 @@ def main():
         background: #f8f9fa;
         border-radius: 1.5rem;
         box-shadow: 0 4px 32px rgba(0,100,170,0.08);
+        height: 65vh;
+        overflow-y: auto;
     }
     .tum-chat-title {
         font-size: 2.2rem;
@@ -254,6 +257,8 @@ def main():
         align-items: center;
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
         z-index: 100;
+        max-width: 900px;
+        margin: 0 auto;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -270,6 +275,7 @@ def main():
     send_clicked, prompt = render_input(doc_type)
     # Handle sending and response in one run
     if send_clicked and prompt:
+        # Only append one user message per send
         messages.append({"role": "user", "content": prompt})
         st.session_state.is_generating = True
         st.session_state["show_suggestions"] = False
@@ -307,6 +313,7 @@ def main():
                 full_response = result["document"] if result else "[Error: No response]"
                 for chunk in simulate_streaming(full_response):
                     render_chat(messages + [{"role": "assistant", "content": chunk}])
+            # Only append one assistant message per send
             messages.append({"role": "assistant", "content": full_response})
             st.session_state.current_document = full_response
             st.session_state.messages = messages
