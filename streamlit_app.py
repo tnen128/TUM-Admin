@@ -37,6 +37,7 @@ def init_session_state():
         "messages": [],
         "current_document": None,
         "document_history": [],
+        "all_responses_history": [],  # New: Store all responses with proper naming
         "is_generating": False,
         "show_preview": False,
         "preview_doc_idx": None,
@@ -49,7 +50,8 @@ def init_session_state():
         "message_counter": 0,
         "refinement_mode": False,
         "current_prompt": "",
-        "form_key": 0
+        "form_key": 0,
+        "response_counters": {}  # Track response numbers per doc_type + tone combination
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -75,6 +77,93 @@ def clean_response_text(text):
     text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
     return text
 
+def format_email_response(raw_text, sender_name="", sender_profession=""):
+    """Format the response into a well-structured email format"""
+    lines = raw_text.strip().split('\n')
+    
+    # Filter out unwanted lines
+    filtered_lines = []
+    skip_next = False
+    
+    for line in lines:
+        line_strip = line.strip()
+        
+        # Skip announcement lines
+        if line_strip.lower().startswith('announcement:'):
+            continue
+        
+        # Skip duplicate greetings
+        if line_strip.lower() in ['dear students,', 'dear all,', 'dear mmdt students,', 'dear mie students,', 'dear bie students,']:
+            continue
+            
+        # Skip existing closing signatures
+        if line_strip.lower().startswith('kind regards,') or line_strip.lower().startswith('best regards,'):
+            skip_next = True
+            continue
+            
+        if skip_next and (line_strip.lower().find('technical university of munich') != -1 or 
+                         line_strip.lower().find('campus heilbronn') != -1):
+            skip_next = False
+            continue
+            
+        if line_strip:  # Only add non-empty lines
+            filtered_lines.append(line_strip)
+    
+    # Build the well-structured email
+    email_parts = []
+    email_parts.append("Dear Students,")
+    email_parts.append("")
+    
+    # Add main content with proper spacing
+    for line in filtered_lines:
+        email_parts.append(line)
+        email_parts.append("")  # Add spacing between paragraphs
+    
+    # Remove last empty line and add closing
+    if email_parts and email_parts[-1] == "":
+        email_parts.pop()
+    
+    email_parts.append("")
+    email_parts.append("Best regards,")
+    
+    # Add sender information
+    if sender_name:
+        if sender_profession:
+            email_parts.append(f"{sender_name}")
+            email_parts.append(f"{sender_profession}")
+        else:
+            email_parts.append(sender_name)
+    
+    email_parts.append("Technical University of Munich Campus Heilbronn")
+    
+    return "\n".join(email_parts)
+
+def get_response_name(doc_type, tone):
+    """Generate a unique response name following the pattern: doctype_tone_response_number"""
+    key = f"{doc_type}_{tone}"
+    
+    if key not in st.session_state.response_counters:
+        st.session_state.response_counters[key] = 0
+    
+    st.session_state.response_counters[key] += 1
+    return f"{doc_type}_{tone}_response_{st.session_state.response_counters[key]}"
+
+def add_to_all_responses_history(doc_type, tone, content, sender_name="", sender_profession=""):
+    """Add response to the complete history with proper naming"""
+    response_name = get_response_name(doc_type, tone)
+    
+    response_entry = {
+        "name": response_name,
+        "type": doc_type,
+        "tone": tone,
+        "content": content,
+        "sender_name": sender_name,
+        "sender_profession": sender_profession,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    st.session_state.all_responses_history.append(response_entry)
+
 # --- Sidebar UI ---
 def render_sidebar():
     with st.sidebar:
@@ -97,36 +186,40 @@ def render_sidebar():
         language = st.selectbox("Language", options=["English", "German", "Both"], index=0)
         
         st.markdown("---")
-        st.markdown("### 📜 Document History")
+        st.markdown("### 📜 All Responses History")
         
-        if st.session_state.document_history:
-            for idx, doc in enumerate(reversed(st.session_state.document_history)):
-                title = f"{doc.get('type', 'Unknown')} - {doc.get('timestamp', 'Unknown')}"
-                
-                with st.expander(f"📄 {title}", expanded=False):
+        if st.session_state.all_responses_history:
+            for idx, response in enumerate(reversed(st.session_state.all_responses_history)):
+                with st.expander(f"📄 {response['name']}", expanded=False):
+                    st.markdown(f"**Type:** {response['type']}")
+                    st.markdown(f"**Tone:** {response['tone']}")
+                    st.markdown(f"**Created:** {response['timestamp']}")
+                    st.markdown("---")
+                    
                     st.text_area(
                         "Content Preview:",
-                        value=doc['content'][:200] + "..." if len(doc['content']) > 200 else doc['content'],
-                        height=80,
+                        value=response['content'][:300] + "..." if len(response['content']) > 300 else response['content'],
+                        height=100,
                         disabled=True,
-                        key=f"preview_text_{idx}"
+                        key=f"all_preview_text_{idx}"
                     )
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        if st.button("👁️ View", key=f"preview_btn_{idx}"):
-                            open_preview(idx)
+                        if st.button("👁️ View Full", key=f"all_preview_btn_{idx}"):
+                            st.session_state.show_preview = True
+                            st.session_state.preview_doc_idx = len(st.session_state.all_responses_history) - 1 - idx
                     
                     with col2:
                         try:
                             exporter = DocumentExporter()
-                            pdf_bytes = exporter.export_to_pdf(doc['content'], {"doc_type": doc.get('type'), "tone": doc.get('tone')})
+                            pdf_bytes = exporter.export_to_pdf(response['content'], {"doc_type": response['type'], "tone": response['tone']})
                             st.download_button(
                                 label="📑 PDF",
                                 data=pdf_bytes,
-                                file_name=f"TUM_{doc.get('type', 'Document')}.pdf",
+                                file_name=f"TUM_{response['name']}.pdf",
                                 mime="application/pdf",
-                                key=f"download_pdf_{idx}"
+                                key=f"all_download_pdf_{idx}"
                             )
                         except Exception as e:
                             st.error(f"PDF export error: {str(e)}")
@@ -134,18 +227,18 @@ def render_sidebar():
                     with col3:
                         try:
                             exporter = DocumentExporter()
-                            docx_bytes = exporter.export_to_docx(doc['content'], {"doc_type": doc.get('type'), "tone": doc.get('tone')})
+                            docx_bytes = exporter.export_to_docx(response['content'], {"doc_type": response['type'], "tone": response['tone']})
                             st.download_button(
                                 label="📘 DOCX",
                                 data=docx_bytes,
-                                file_name=f"TUM_{doc.get('type', 'Document')}.docx",
+                                file_name=f"TUM_{response['name']}.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                key=f"download_docx_{idx}"
+                                key=f"all_download_docx_{idx}"
                             )
                         except Exception as e:
                             st.error(f"DOCX export error: {str(e)}")
         else:
-            st.info("No documents generated yet.")
+            st.info("No responses generated yet.")
         
         return doc_type, tone, sender_name, sender_profession, language
 
@@ -168,7 +261,8 @@ def render_chat():
                                 margin-right: 10px;
                                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                                 font-size: 14px;
-                                line-height: 1.4;">
+                                line-height: 1.4;
+                                white-space: pre-wrap;">
                         {content}
                     </div>
                     <div style="background: #667eea; 
@@ -210,7 +304,8 @@ def render_chat():
                                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                                 font-size: 14px;
                                 line-height: 1.4;
-                                border: 1px solid #dee2e6;">
+                                border: 1px solid #dee2e6;
+                                white-space: pre-wrap;">
                         {content}
                     </div>
                 </div>
@@ -351,7 +446,7 @@ def main():
         # Input interface
         send_clicked, prompt = render_input(doc_type)
         
-        # Process message - FIXED LOGIC
+        # Process message - ENHANCED WITH FORMATTING
         if send_clicked and prompt.strip():
             st.session_state.message_counter += 1
             
@@ -401,18 +496,28 @@ def main():
                         else:
                             refined_content = str(result)
                         
-                        # Clean the response
+                        # Clean and format the response
                         refined_content = clean_response_text(refined_content)
+                        formatted_response = format_email_response(refined_content, sender_name, sender_profession)
                         
                         # Update the existing document instead of creating a new one
-                        st.session_state.document_history[-1]["content"] = refined_content
+                        st.session_state.document_history[-1]["content"] = formatted_response
                         st.session_state.document_history[-1]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
+                        # Add to complete history (this creates a new entry for refinement)
+                        add_to_all_responses_history(
+                            last_doc.get("type", doc_type), 
+                            last_doc.get("tone", tone), 
+                            formatted_response, 
+                            sender_name, 
+                            sender_profession
+                        )
+                        
                         # Update current document
-                        st.session_state.current_document = refined_content
+                        st.session_state.current_document = formatted_response
                         
                         # Add assistant response
-                        st.session_state.messages.append({"role": "assistant", "content": refined_content})
+                        st.session_state.messages.append({"role": "assistant", "content": formatted_response})
                         
                         st.success("✅ Document refined successfully!")
                         
@@ -435,22 +540,26 @@ def main():
                         else:
                             full_response = str(result)
                         
-                        # Clean response
+                        # Clean and format response
                         full_response = clean_response_text(full_response)
+                        formatted_response = format_email_response(full_response, sender_name, sender_profession)
                         
                         # Add new document to history
                         st.session_state.document_history.append({
                             "type": doc_type,
                             "tone": tone,
-                            "content": full_response,
+                            "content": formatted_response,
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         })
                         
+                        # Add to complete history
+                        add_to_all_responses_history(doc_type, tone, formatted_response, sender_name, sender_profession)
+                        
                         # Update current document
-                        st.session_state.current_document = full_response
+                        st.session_state.current_document = formatted_response
                         
                         # Add assistant response
-                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                        st.session_state.messages.append({"role": "assistant", "content": formatted_response})
                         
                         st.success("✅ New document generated successfully!")
                     
@@ -466,24 +575,26 @@ def main():
                 st.rerun()
     
     with col2:
-        # Document preview only (removed current status section)
+        # Document preview for all responses history
         if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
-            doc = st.session_state.document_history[-(st.session_state.preview_doc_idx + 1)]
-            
-            st.markdown("### 📖 Document Preview")
-            st.markdown("---")
-            
-            st.markdown(f"**Type:** {doc.get('type', 'Unknown')}")
-            st.markdown(f"**Tone:** {doc.get('tone', 'Neutral')}")
-            st.markdown(f"**Created:** {doc.get('timestamp', 'Unknown')}")
-            st.markdown("---")
-            
-            st.markdown("**Content:**")
-            st.markdown(doc['content'])
-            
-            if st.button("❌ Close", key="close_preview_btn"):
-                close_preview()
-                st.rerun()
+            if st.session_state.preview_doc_idx < len(st.session_state.all_responses_history):
+                response = st.session_state.all_responses_history[st.session_state.preview_doc_idx]
+                
+                st.markdown("### 📖 Response Preview")
+                st.markdown("---")
+                
+                st.markdown(f"**Name:** {response['name']}")
+                st.markdown(f"**Type:** {response['type']}")
+                st.markdown(f"**Tone:** {response['tone']}")
+                st.markdown(f"**Created:** {response['timestamp']}")
+                st.markdown("---")
+                
+                st.markdown("**Content:**")
+                st.markdown(response['content'])
+                
+                if st.button("❌ Close", key="close_preview_btn"):
+                    close_preview()
+                    st.rerun()
 
 if __name__ == "__main__":
     main()
