@@ -133,7 +133,7 @@ def render_sidebar():
 
 # --- Chat UI ---
 def render_chat(messages):
-    st.title("TUM Admin Assistant 🤖")
+    
     chat_container = st.container()
     with chat_container:
         for message in messages:
@@ -240,6 +240,21 @@ def main():
         background: #e6e6e6;
         color: #222;
     }
+    /* Input container fixed at bottom */
+    .input-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        background-color: white;
+        border-top: 1px solid #E6E6E6;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+        z-index: 100;
+    }
     </style>
     """, unsafe_allow_html=True)
     init_session_state()
@@ -249,9 +264,11 @@ def main():
         st.session_state["selected_suggestion"] = None
         st.session_state["last_doc_type"] = doc_type
         st.session_state["prompt_input"] = ""
+    # Render chat area first, then input at the bottom
+    messages = st.session_state.messages.copy()
+    render_chat(messages)
     send_clicked, prompt = render_input(doc_type)
     # Handle sending and response in one run
-    messages = st.session_state.messages.copy()
     if send_clicked and prompt:
         messages.append({"role": "user", "content": prompt})
         st.session_state.is_generating = True
@@ -300,8 +317,6 @@ def main():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
         st.session_state.is_generating = False
-    else:
-        render_chat(messages)
     # Document Preview Modal
     if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
         doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
