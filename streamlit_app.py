@@ -46,7 +46,8 @@ def init_session_state():
         "exported_file": None,
         "exported_file_name": None,
         "exported_file_mime": None,
-        "message_counter": 0  # Add counter for unique keys
+        "message_counter": 0,
+        "refinement_mode": False
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -60,6 +61,15 @@ def open_preview(idx):
 def close_preview():
     st.session_state.show_preview = False
     st.session_state.preview_doc_idx = None
+
+def clean_response_text(text):
+    """Clean HTML tags and unwanted formatting from response"""
+    import re
+    # Remove HTML tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 # --- Sidebar UI ---
 def render_sidebar():
@@ -86,27 +96,21 @@ def render_sidebar():
         st.markdown("### 📜 Document History")
         
         if st.session_state.document_history:
-            doc_counts = {}
-            for doc in st.session_state.document_history:
-                key = (doc.get('type', 'Unknown'), doc.get('tone', 'Neutral'))
-                doc_counts[key] = doc_counts.get(key, 0) + 1
-                doc['doc_number'] = doc_counts[key]
-            
             for idx, doc in enumerate(reversed(st.session_state.document_history)):
-                title = f"{doc.get('type', 'Unknown')}_{doc.get('tone', 'Neutral')}_{doc['doc_number']}"
+                title = f"{doc.get('type', 'Unknown')} - {doc.get('timestamp', 'Unknown')}"
                 
                 with st.expander(f"📄 {title}", expanded=False):
                     st.text_area(
                         "Content Preview:",
-                        value=doc['content'][:300] + "..." if len(doc['content']) > 300 else doc['content'],
-                        height=100,
+                        value=doc['content'][:200] + "..." if len(doc['content']) > 200 else doc['content'],
+                        height=80,
                         disabled=True,
                         key=f"preview_text_{idx}"
                     )
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        if st.button("👁️ Full Preview", key=f"preview_btn_{idx}"):
+                        if st.button("👁️ View", key=f"preview_btn_{idx}"):
                             open_preview(idx)
                     
                     with col2:
@@ -116,7 +120,7 @@ def render_sidebar():
                             st.download_button(
                                 label="📑 PDF",
                                 data=pdf_bytes,
-                                file_name=f"TUM_{doc.get('type', 'Document')}_{doc.get('tone', 'Neutral')}.pdf",
+                                file_name=f"TUM_{doc.get('type', 'Document')}.pdf",
                                 mime="application/pdf",
                                 key=f"download_pdf_{idx}"
                             )
@@ -130,7 +134,7 @@ def render_sidebar():
                             st.download_button(
                                 label="📘 DOCX",
                                 data=docx_bytes,
-                                file_name=f"TUM_{doc.get('type', 'Document')}_{doc.get('tone', 'Neutral')}.docx",
+                                file_name=f"TUM_{doc.get('type', 'Document')}.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                 key=f"download_docx_{idx}"
                             )
@@ -143,60 +147,48 @@ def render_sidebar():
 
 # --- Chat UI ---
 def render_chat():
-    st.markdown("### 💬 Chat Interface")
-    
-    # Create a container for messages with proper styling
-    chat_container = st.container()
-    
-    with chat_container:
+    if st.session_state.messages:
         for i, message in enumerate(st.session_state.messages):
             role = message['role']
-            content = message['content']
+            content = clean_response_text(message['content'])  # Clean the content
             
             if role == 'user':
-                st.markdown(f"""
-                <div style="display: flex; justify-content: flex-end; margin: 10px 0;">
-                    <div style="background-color: #0066cc; color: white; padding: 10px 15px; 
-                                border-radius: 15px 15px 5px 15px; max-width: 70%; 
-                                word-wrap: break-word;">
-                        <strong>You:</strong><br>{content}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                with st.chat_message("user"):
+                    st.write(content)
             else:
-                st.markdown(f"""
-                <div style="display: flex; justify-content: flex-start; margin: 10px 0;">
-                    <div style="background-color: #f0f0f0; color: black; padding: 10px 15px; 
-                                border-radius: 15px 15px 15px 5px; max-width: 70%; 
-                                word-wrap: break-word;">
-                        <strong>Assistant:</strong><br>{content}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                with st.chat_message("assistant"):
+                    st.write(content)
 
 # --- Input UI ---
 def render_input(doc_type):
-    st.markdown("### ✍️ Your Message")
-    
-    # Show suggested prompts
+    # Show suggested prompts only for new documents
     suggested = SUGGESTED_PROMPTS.get(doc_type, [])
-    if st.session_state.show_suggestions and suggested:
-        st.markdown("**Suggested prompts:**")
+    if st.session_state.show_suggestions and suggested and not st.session_state.document_history:
+        st.markdown("**💡 Suggested prompts:**")
         cols = st.columns(len(suggested))
         for i, suggestion in enumerate(suggested):
             if cols[i].button(suggestion, key=f"suggestion_{i}_{st.session_state.message_counter}"):
                 return True, suggestion
     
+    # Show refinement mode indicator
+    if st.session_state.document_history:
+        st.info("🔄 **Refinement Mode**: Your next message will refine the latest document.")
+    
     # Input form
     with st.form(key="message_form", clear_on_submit=True):
+        if st.session_state.document_history:
+            placeholder_text = "Enter your refinement request (e.g., 'change course name to C++', 'make it more formal', etc.)"
+        else:
+            placeholder_text = "Enter your prompt to generate a new document..."
+            
         prompt = st.text_area(
-            "Type your message here:",
-            placeholder="Enter your prompt or refinement request...",
+            "Your message:",
+            placeholder=placeholder_text,
             height=100,
             key="user_input"
         )
         
-        col1, col2 = st.columns([1, 4])
+        col1, col2, col3 = st.columns([1, 1, 3])
         with col1:
             send_clicked = st.form_submit_button(
                 "Send ✉️", 
@@ -204,6 +196,14 @@ def render_input(doc_type):
                 use_container_width=True
             )
         with col2:
+            if st.button("🗑️ Clear Chat", key="clear_chat"):
+                st.session_state.messages = []
+                st.session_state.document_history = []
+                st.session_state.current_document = None
+                st.session_state.show_suggestions = True
+                st.rerun()
+        
+        with col3:
             if st.session_state.is_generating:
                 st.info("🔄 Generating response...")
     
@@ -219,29 +219,7 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Custom CSS for better styling
-    st.markdown("""
-    <style>
-    .main > div {
-        padding-top: 2rem;
-    }
-    .stForm {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 10px;
-        border: 1px solid #e9ecef;
-    }
-    .stExpander {
-        background-color: #ffffff;
-        border: 1px solid #e9ecef;
-        border-radius: 5px;
-        margin-bottom: 0.5rem;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
     st.title("📄 TUM Admin Document Generator")
-    st.markdown("Generate and refine administrative documents with AI assistance.")
     
     # Initialize session state
     init_session_state()
@@ -252,11 +230,10 @@ def main():
     # Handle document type changes
     if st.session_state.last_doc_type != doc_type:
         st.session_state.show_suggestions = True
-        st.session_state.selected_suggestion = None
         st.session_state.last_doc_type = doc_type
     
     # Main content area
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([3, 1])
     
     with col1:
         # Chat interface
@@ -281,27 +258,34 @@ def main():
                     llm = LLMService()
                     
                     if st.session_state.document_history:
-                        # Refinement mode
+                        # Refinement mode - get the latest document
                         last_doc = st.session_state.document_history[-1]
-                        doc_type_val = last_doc.get("type", doc_type)
-                        tone_val = last_doc.get("tone", tone)
-                        history_docs = [d["content"] for d in st.session_state.document_history]
                         
+                        # Call refine_document with proper parameters
                         result = llm.refine_document(
                             current_document=last_doc["content"],
                             refinement_prompt=prompt,
-                            doc_type=DocumentType(doc_type_val),
-                            tone=ToneType(tone_val),
-                            history=history_docs
+                            doc_type=DocumentType(last_doc.get("type", doc_type)),
+                            tone=ToneType(last_doc.get("tone", tone)),
+                            history=[d["content"] for d in st.session_state.document_history[:-1]]  # Exclude current doc from history
                         )
                         
-                        # Handle different result types
-                        if hasattr(result, '__iter__') and not isinstance(result, str):
-                            full_response = "".join(chunk.get("document", str(chunk)) for chunk in result)
-                        elif isinstance(result, dict) and "document" in result:
+                        # Extract the refined document
+                        if isinstance(result, dict) and "document" in result:
                             full_response = result["document"]
+                        elif hasattr(result, '__iter__') and not isinstance(result, str):
+                            full_response = "".join(chunk.get("document", str(chunk)) for chunk in result)
                         else:
                             full_response = str(result)
+                        
+                        # Update the latest document in history instead of creating new one
+                        st.session_state.document_history[-1] = {
+                            "type": last_doc.get("type", doc_type),
+                            "tone": last_doc.get("tone", tone),
+                            "content": clean_response_text(full_response),
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        
                     else:
                         # New document generation
                         result = llm.generate_document(
@@ -312,24 +296,29 @@ def main():
                             sender_profession=sender_profession,
                             language=language
                         )
-                        full_response = result.get("document", str(result)) if isinstance(result, dict) else str(result)
+                        
+                        if isinstance(result, dict) and "document" in result:
+                            full_response = result["document"]
+                        else:
+                            full_response = str(result)
+                        
+                        # Add new document to history
+                        st.session_state.document_history.append({
+                            "type": doc_type,
+                            "tone": tone,
+                            "content": clean_response_text(full_response),
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
                     
-                    # Add assistant response
-                    st.session_state.messages.append({"role": "assistant", "content": full_response})
-                    st.session_state.current_document = full_response
+                    # Clean and add assistant response
+                    clean_response = clean_response_text(full_response)
+                    st.session_state.messages.append({"role": "assistant", "content": clean_response})
+                    st.session_state.current_document = clean_response
                     
-                    # Add to document history
-                    st.session_state.document_history.append({
-                        "type": doc_type,
-                        "tone": tone,
-                        "content": full_response,
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    })
-                    
-                    st.success("✅ Document generated successfully!")
+                    st.success("✅ Document processed successfully!")
                     
             except Exception as e:
-                st.error(f"❌ Error generating document: {str(e)}")
+                st.error(f"❌ Error: {str(e)}")
                 st.session_state.messages.append({
                     "role": "assistant", 
                     "content": f"Sorry, I encountered an error: {str(e)}"
@@ -340,38 +329,34 @@ def main():
                 st.rerun()
     
     with col2:
-        # Document preview modal
+        # Document preview
         if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
             doc = st.session_state.document_history[-(st.session_state.preview_doc_idx + 1)]
             
             st.markdown("### 📖 Document Preview")
             st.markdown("---")
             
-            # Document metadata
             st.markdown(f"**Type:** {doc.get('type', 'Unknown')}")
             st.markdown(f"**Tone:** {doc.get('tone', 'Neutral')}")
             st.markdown(f"**Created:** {doc.get('timestamp', 'Unknown')}")
             st.markdown("---")
             
-            # Document content
             st.markdown("**Content:**")
             st.markdown(doc['content'])
             
-            if st.button("❌ Close Preview", key="close_preview_btn"):
+            if st.button("❌ Close", key="close_preview_btn"):
                 close_preview()
                 st.rerun()
         
-        # Current document info
-        if st.session_state.current_document:
-            st.markdown("### 📄 Current Document")
-            st.info(f"Document ready! ({len(st.session_state.document_history)} total documents)")
+        # Current document status
+        elif st.session_state.current_document:
+            st.markdown("### 📄 Current Status")
+            st.success(f"✅ {len(st.session_state.document_history)} document(s) ready")
             
-            if st.button("🔄 Clear All Documents", key="clear_all_btn"):
-                st.session_state.document_history = []
-                st.session_state.current_document = None
-                st.session_state.messages = []
-                st.success("All documents cleared!")
-                st.rerun()
+            if st.session_state.document_history:
+                latest_doc = st.session_state.document_history[-1]
+                st.info(f"**Latest:** {latest_doc.get('type', 'Unknown')}")
+                st.info(f"**Words:** {len(latest_doc['content'].split())}")
 
 if __name__ == "__main__":
     main()
