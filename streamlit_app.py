@@ -133,8 +133,6 @@ def render_sidebar():
 
 # --- Chat UI ---
 def render_chat():
-    st.markdown('<div class="tum-chat-title">TUM Admin Assistant 🤖</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tum-chat-container" style="height: 65vh; overflow-y: auto;">', unsafe_allow_html=True)
     for message in st.session_state.messages:
         role = message['role']
         avatar = '👤' if role == 'user' else '🤖'
@@ -145,7 +143,6 @@ def render_chat():
             <div class="tum-chat-bubble">{message['content']}</div>
         </div>
         ''', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Input UI ---
 def render_input(doc_type):
@@ -268,16 +265,13 @@ def main():
         st.session_state["selected_suggestion"] = None
         st.session_state["last_doc_type"] = doc_type
         st.session_state["prompt_input"] = ""
-    render_chat()
     send_clicked, prompt = render_input(doc_type)
     if send_clicked and prompt:
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.session_state.is_generating = True
         st.session_state["show_suggestions"] = False
         st.session_state["selected_suggestion"] = None
-        # Set flag to clear input on next rerun
         st.session_state["clear_prompt_input"] = True
-        # Generate response synchronously
         with st.spinner("Generating response..."):
             llm = LLMService()
             if st.session_state.document_history:
@@ -285,7 +279,6 @@ def main():
                 doc_type_val = last_doc.get("type", doc_type)
                 tone_val = last_doc.get("tone", tone)
                 history_docs = [d["content"] for d in st.session_state.document_history]
-                # Synchronous call for refinement
                 result = llm.refine_document(
                     current_document=last_doc["content"],
                     refinement_prompt=prompt,
@@ -293,7 +286,6 @@ def main():
                     tone=ToneType(tone_val),
                     history=history_docs
                 )
-                # If result is a generator, join chunks; else, use as is
                 if hasattr(result, '__iter__') and not isinstance(result, str):
                     full_response = "".join(chunk["document"] for chunk in result)
                 else:
@@ -317,6 +309,7 @@ def main():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
         st.session_state.is_generating = False
+    render_chat()
     # Document Preview Modal (use expander for robust refresh)
     if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
         doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
