@@ -67,13 +67,34 @@ def close_preview():
     st.session_state.preview_doc_idx = None
 
 def clean_response_text(text):
-    """Minimal cleaning - only remove HTML tags, preserve all spacing and formatting"""
+    """Clean and properly align text content while preserving structure"""
     import re
-    # Only remove HTML tags, keep all original spacing and line breaks
+    
+    # Remove HTML tags
     text = re.sub(r'<[^>]+>', '', text)
-    # Remove HTML entities but preserve spacing
+    
+    # Remove HTML entities
     text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
-    return text
+    
+    # Split into lines and process each line
+    lines = text.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        # Strip leading and trailing whitespace but preserve empty lines for structure
+        if line.strip():  # If line has content
+            cleaned_lines.append(line.strip())
+        else:  # If line is empty, keep it for paragraph separation
+            cleaned_lines.append('')
+    
+    # Join lines back together
+    result = '\n'.join(cleaned_lines)
+    
+    # Remove excessive leading/trailing empty lines (keep max 1)
+    result = re.sub(r'^\n+', '', result)  # Remove leading newlines
+    result = re.sub(r'\n+$', '', result)  # Remove trailing newlines
+    
+    return result
 
 def get_response_name(doc_type, tone):
     """Generate a unique response name following the pattern: doctype_tone_response_number"""
@@ -184,7 +205,8 @@ def render_chat():
     if st.session_state.messages:
         for i, message in enumerate(st.session_state.messages):
             role = message['role']
-            content = message['content']  # Use original content without additional cleaning
+            # Clean the content properly for better alignment
+            content = clean_response_text(message['content'])
             
             if role == 'user':
                 # User message - aligned right with human icon
@@ -192,14 +214,15 @@ def render_chat():
                 <div style="display: flex; justify-content: flex-end; margin: 15px 0; align-items: flex-start;">
                     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                                 color: white; 
-                                padding: 12px 16px; 
+                                padding: 15px 18px; 
                                 border-radius: 18px 18px 4px 18px; 
                                 max-width: 70%; 
                                 margin-right: 10px;
                                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                                 font-size: 14px;
-                                line-height: 1.4;
-                                white-space: pre-wrap;">
+                                line-height: 1.5;
+                                white-space: pre-line;
+                                word-wrap: break-word;">
                         {content}
                     </div>
                     <div style="background: #667eea; 
@@ -235,14 +258,15 @@ def render_chat():
                     </div>
                     <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
                                 color: #333; 
-                                padding: 12px 16px; 
+                                padding: 15px 18px; 
                                 border-radius: 18px 18px 18px 4px; 
                                 max-width: 70%; 
                                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                                 font-size: 14px;
-                                line-height: 1.4;
+                                line-height: 1.5;
                                 border: 1px solid #dee2e6;
-                                white-space: pre-wrap;">
+                                white-space: pre-line;
+                                word-wrap: break-word;">
                         {content}
                     </div>
                 </div>
@@ -383,7 +407,7 @@ def main():
         # Input interface
         send_clicked, prompt = render_input(doc_type)
         
-        # Process message - PRESERVE ORIGINAL LLM FORMATTING
+        # Process message - PRESERVE ORIGINAL LLM FORMATTING WITH PROPER ALIGNMENT
         if send_clicked and prompt.strip():
             st.session_state.message_counter += 1
             
@@ -433,7 +457,7 @@ def main():
                         else:
                             refined_content = str(result)
                         
-                        # MINIMAL cleaning - only remove HTML tags, preserve all original formatting
+                        # Clean with proper alignment
                         final_content = clean_response_text(refined_content)
                         
                         # Update the existing document instead of creating a new one
@@ -476,7 +500,7 @@ def main():
                         else:
                             full_response = str(result)
                         
-                        # MINIMAL cleaning - only remove HTML tags, preserve all original formatting
+                        # Clean with proper alignment
                         final_content = clean_response_text(full_response)
                         
                         # Add new document to history
@@ -525,7 +549,7 @@ def main():
                 st.markdown("---")
                 
                 st.markdown("**Content:**")
-                # Display with preserved formatting
+                # Display with preserved formatting but proper alignment
                 st.text(response['content'])
                 
                 if st.button("❌ Close", key="close_preview_btn"):
