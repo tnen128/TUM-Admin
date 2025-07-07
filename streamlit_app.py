@@ -149,6 +149,11 @@ def render_chat():
 
 # --- Input UI ---
 def render_input(doc_type):
+    # ✅ Clear input BEFORE rendering the widget
+    if st.session_state.get("clear_prompt_input", False):
+        st.session_state["prompt_input"] = ""
+        st.session_state["clear_prompt_input"] = False
+
     with st.container():
         st.markdown('<div class="input-container">', unsafe_allow_html=True)
         suggested = SUGGESTED_PROMPTS.get(doc_type, [])
@@ -161,7 +166,7 @@ def render_input(doc_type):
                     st.session_state["selected_suggestion"] = i
         prompt = st.text_area(
             "Your prompt",
-            value=st.session_state.get("prompt_input", ""),
+            placeholder="Type your message here...",
             key="prompt_input",
             height=68,
             label_visibility="collapsed"
@@ -270,6 +275,8 @@ def main():
         st.session_state.is_generating = True
         st.session_state["show_suggestions"] = False
         st.session_state["selected_suggestion"] = None
+        # Set flag to clear input on next rerun
+        st.session_state["clear_prompt_input"] = True
         # Generate response synchronously
         with st.spinner("Generating response..."):
             llm = LLMService()
@@ -310,7 +317,6 @@ def main():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
         st.session_state.is_generating = False
-        st.session_state["prompt_input"] = ""  # Clear input after send
     # Document Preview Modal (use expander for robust refresh)
     if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
         doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
