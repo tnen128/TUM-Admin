@@ -47,7 +47,8 @@ def init_session_state():
         "exported_file_name": None,
         "exported_file_mime": None,
         "message_counter": 0,
-        "refinement_mode": False
+        "refinement_mode": False,
+        "current_prompt": ""  # Add this for suggestion handling
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -67,8 +68,10 @@ def clean_response_text(text):
     import re
     # Remove HTML tags
     text = re.sub(r'<[^>]+>', '', text)
-    # Remove extra whitespace
+    # Remove extra whitespace and normalize
     text = re.sub(r'\s+', ' ', text).strip()
+    # Remove any remaining HTML entities
+    text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
     return text
 
 # --- Sidebar UI ---
@@ -150,14 +153,67 @@ def render_chat():
     if st.session_state.messages:
         for i, message in enumerate(st.session_state.messages):
             role = message['role']
-            content = clean_response_text(message['content'])  # Clean the content
+            content = clean_response_text(message['content'])
             
             if role == 'user':
-                with st.chat_message("user"):
-                    st.write(content)
+                # User message - aligned right with human icon
+                st.markdown(f"""
+                <div style="display: flex; justify-content: flex-end; margin: 15px 0; align-items: flex-start;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                color: white; 
+                                padding: 12px 16px; 
+                                border-radius: 18px 18px 4px 18px; 
+                                max-width: 70%; 
+                                margin-right: 10px;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                font-size: 14px;
+                                line-height: 1.4;">
+                        {content}
+                    </div>
+                    <div style="background: #667eea; 
+                                color: white; 
+                                border-radius: 50%; 
+                                width: 35px; 
+                                height: 35px; 
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center;
+                                font-size: 16px;
+                                flex-shrink: 0;">
+                        👤
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                with st.chat_message("assistant"):
-                    st.write(content)
+                # Assistant message - aligned left with robot icon
+                st.markdown(f"""
+                <div style="display: flex; justify-content: flex-start; margin: 15px 0; align-items: flex-start;">
+                    <div style="background: #28a745; 
+                                color: white; 
+                                border-radius: 50%; 
+                                width: 35px; 
+                                height: 35px; 
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center;
+                                font-size: 16px;
+                                flex-shrink: 0;
+                                margin-right: 10px;">
+                        🤖
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                                color: #333; 
+                                padding: 12px 16px; 
+                                border-radius: 18px 18px 18px 4px; 
+                                max-width: 70%; 
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                font-size: 14px;
+                                line-height: 1.4;
+                                border: 1px solid #dee2e6;">
+                        {content}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 # --- Input UI ---
 def render_input(doc_type):
@@ -168,11 +224,9 @@ def render_input(doc_type):
         cols = st.columns(len(suggested))
         for i, suggestion in enumerate(suggested):
             if cols[i].button(suggestion, key=f"suggestion_{i}_{st.session_state.message_counter}"):
-                return True, suggestion
-    
-    # Show refinement mode indicator
-    if st.session_state.document_history:
-        st.info("🔄 **Refinement Mode**: Your next message will refine the latest document.")
+                # Set the suggestion in session state instead of returning immediately
+                st.session_state.current_prompt = suggestion
+                st.rerun()
     
     # Clear Chat button OUTSIDE the form
     col_clear, col_spacer = st.columns([1, 4])
@@ -182,23 +236,27 @@ def render_input(doc_type):
             st.session_state.document_history = []
             st.session_state.current_document = None
             st.session_state.show_suggestions = True
+            st.session_state.current_prompt = ""
             st.rerun()
     
-    # Input form (without the Clear Chat button)
+    # Input form
     with st.form(key="message_form", clear_on_submit=True):
         if st.session_state.document_history:
             placeholder_text = "Enter your refinement request (e.g., 'change course name to C++', 'make it more formal', etc.)"
         else:
             placeholder_text = "Enter your prompt to generate a new document..."
-            
+        
+        # Use session state value if a suggestion was clicked
+        default_value = st.session_state.get("current_prompt", "")
+        
         prompt = st.text_area(
             "Your message:",
             placeholder=placeholder_text,
             height=100,
-            key="user_input"
+            key="user_input",
+            value=default_value
         )
         
-        # Only the Send button inside the form
         send_clicked = st.form_submit_button(
             "Send ✉️", 
             disabled=st.session_state.is_generating,
@@ -207,6 +265,10 @@ def render_input(doc_type):
         
         if st.session_state.is_generating:
             st.info("🔄 Generating response...")
+    
+    # Clear the current_prompt after form is rendered
+    if st.session_state.get("current_prompt"):
+        st.session_state.current_prompt = ""
     
     return send_clicked, prompt
 
@@ -238,6 +300,27 @@ def main():
         border-radius: 5px;
         margin-bottom: 0.5rem;
     }
+    /* Custom scrollbar for chat */
+    .chat-container {
+        max-height: 500px;
+        overflow-y: auto;
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+    .chat-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    .chat-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+    .chat-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+    }
+    .chat-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
     </style>
     """, unsafe_allow_html=True)
     
@@ -258,15 +341,16 @@ def main():
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        # Chat interface
+        # Chat interface with custom container
+        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
         render_chat()
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Input interface
         send_clicked, prompt = render_input(doc_type)
         
         # Process message
         if send_clicked and prompt.strip():
-            # Increment message counter for unique keys
             st.session_state.message_counter += 1
             
             # Add user message
@@ -280,36 +364,60 @@ def main():
                     llm = LLMService()
                     
                     if st.session_state.document_history:
-                        # Refinement mode - get the latest document
+                        # REFINEMENT MODE
                         last_doc = st.session_state.document_history[-1]
                         
-                        # Call refine_document with proper parameters
+                        st.info(f"🔄 Refining document: {last_doc.get('type', 'Unknown')}")
+                        
+                        # Call refinement with correct parameters
                         result = llm.refine_document(
                             current_document=last_doc["content"],
                             refinement_prompt=prompt,
                             doc_type=DocumentType(last_doc.get("type", doc_type)),
                             tone=ToneType(last_doc.get("tone", tone)),
-                            history=[d["content"] for d in st.session_state.document_history[:-1]]  # Exclude current doc from history
+                            history=[]
                         )
                         
-                        # Extract the refined document
-                        if isinstance(result, dict) and "document" in result:
-                            full_response = result["document"]
-                        elif hasattr(result, '__iter__') and not isinstance(result, str):
-                            full_response = "".join(chunk.get("document", str(chunk)) for chunk in result)
+                        # Handle different response types from LLM
+                        if isinstance(result, dict):
+                            if "document" in result:
+                                refined_content = result["document"]
+                            elif "content" in result:
+                                refined_content = result["content"]
+                            else:
+                                refined_content = str(result)
+                        elif isinstance(result, str):
+                            refined_content = result
+                        elif hasattr(result, '__iter__'):
+                            # Handle streaming response
+                            refined_content = ""
+                            for chunk in result:
+                                if isinstance(chunk, dict):
+                                    refined_content += chunk.get("document", chunk.get("content", str(chunk)))
+                                else:
+                                    refined_content += str(chunk)
                         else:
-                            full_response = str(result)
+                            refined_content = str(result)
                         
-                        # Update the latest document in history instead of creating new one
-                        st.session_state.document_history[-1] = {
-                            "type": last_doc.get("type", doc_type),
-                            "tone": last_doc.get("tone", tone),
-                            "content": clean_response_text(full_response),
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        }
+                        # Clean the response
+                        refined_content = clean_response_text(refined_content)
+                        
+                        # Update the existing document instead of creating a new one
+                        st.session_state.document_history[-1]["content"] = refined_content
+                        st.session_state.document_history[-1]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        # Update current document
+                        st.session_state.current_document = refined_content
+                        
+                        # Add assistant response
+                        st.session_state.messages.append({"role": "assistant", "content": refined_content})
+                        
+                        st.success("✅ Document refined successfully!")
                         
                     else:
-                        # New document generation
+                        # NEW DOCUMENT GENERATION
+                        st.info("📝 Generating new document...")
+                        
                         result = llm.generate_document(
                             doc_type=DocumentType(doc_type),
                             tone=ToneType(tone),
@@ -319,25 +427,30 @@ def main():
                             language=language
                         )
                         
+                        # Handle response
                         if isinstance(result, dict) and "document" in result:
                             full_response = result["document"]
                         else:
                             full_response = str(result)
                         
+                        # Clean response
+                        full_response = clean_response_text(full_response)
+                        
                         # Add new document to history
                         st.session_state.document_history.append({
                             "type": doc_type,
                             "tone": tone,
-                            "content": clean_response_text(full_response),
+                            "content": full_response,
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         })
-                    
-                    # Clean and add assistant response
-                    clean_response = clean_response_text(full_response)
-                    st.session_state.messages.append({"role": "assistant", "content": clean_response})
-                    st.session_state.current_document = clean_response
-                    
-                    st.success("✅ Document processed successfully!")
+                        
+                        # Update current document
+                        st.session_state.current_document = full_response
+                        
+                        # Add assistant response
+                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                        
+                        st.success("✅ New document generated successfully!")
                     
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
@@ -351,7 +464,7 @@ def main():
                 st.rerun()
     
     with col2:
-        # Document preview
+        # Document preview only
         if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
             doc = st.session_state.document_history[-(st.session_state.preview_doc_idx + 1)]
             
@@ -369,16 +482,6 @@ def main():
             if st.button("❌ Close", key="close_preview_btn"):
                 close_preview()
                 st.rerun()
-        
-        # Current document status
-        elif st.session_state.current_document:
-            st.markdown("### 📄 Current Status")
-            st.success(f"✅ {len(st.session_state.document_history)} document(s) ready")
-            
-            if st.session_state.document_history:
-                latest_doc = st.session_state.document_history[-1]
-                st.info(f"**Latest:** {latest_doc.get('type', 'Unknown')}")
-                st.info(f"**Words:** {len(latest_doc['content'].split())}")
 
 if __name__ == "__main__":
     main()
