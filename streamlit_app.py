@@ -67,7 +67,7 @@ def close_preview():
     st.session_state.preview_doc_idx = None
 
 def clean_response_text(text):
-    """Clean and properly align text content while preserving structure"""
+    """Comprehensive cleaning to remove all markdown and formatting issues"""
     import re
     
     # Remove HTML tags
@@ -76,23 +76,51 @@ def clean_response_text(text):
     # Remove HTML entities
     text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
     
-    # Split into lines and process each line
+    # Remove all markdown formatting
+    # Bold and italic
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # **bold**
+    text = re.sub(r'\*(.*?)\*', r'\1', text)      # *italic*
+    text = re.sub(r'__(.*?)__', r'\1', text)      # __bold__
+    text = re.sub(r'_(.*?)_', r'\1', text)        # _italic_
+    
+    # Headers
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    
+    # Lists (remove markers but keep content)
+    text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)  # Bullet lists
+    text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)  # Numbered lists
+    
+    # Remove horizontal rules
+    text = re.sub(r'^-{3,}$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\*{3,}$', '', text, flags=re.MULTILINE)
+    
+    # Remove code blocks
+    text = re.sub(r'``````', '', text, flags=re.DOTALL)
+    text = re.sub(r'`([^`]+)`', r'\1', text)  # Inline code
+    
+    # Remove links but keep text
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    
+    # Remove extra dashes and special characters
+    text = re.sub(r'^-+\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\s*-+$', '', text, flags=re.MULTILINE)
+    
+    # Clean up lines
     lines = text.split('\n')
     cleaned_lines = []
     
     for line in lines:
-        # Strip leading and trailing whitespace but preserve empty lines for structure
-        if line.strip():  # If line has content
-            cleaned_lines.append(line.strip())
-        else:  # If line is empty, keep it for paragraph separation
+        cleaned_line = line.strip()
+        # Skip empty dashes or formatting lines
+        if cleaned_line and not re.match(r'^[-=*_]+$', cleaned_line):
+            cleaned_lines.append(cleaned_line)
+        elif not cleaned_line:  # Keep empty lines for paragraph breaks
             cleaned_lines.append('')
     
-    # Join lines back together
+    # Join and clean up
     result = '\n'.join(cleaned_lines)
-    
-    # Remove excessive leading/trailing empty lines (keep max 1)
-    result = re.sub(r'^\n+', '', result)  # Remove leading newlines
-    result = re.sub(r'\n+$', '', result)  # Remove trailing newlines
+    result = re.sub(r'\n{3,}', '\n\n', result)  # Max 2 consecutive newlines
+    result = result.strip()
     
     return result
 
@@ -121,6 +149,76 @@ def add_to_all_responses_history(doc_type, tone, content, sender_name="", sender
     }
     
     st.session_state.all_responses_history.append(response_entry)
+
+# --- Modal Preview Component ---
+def render_modal_preview():
+    """Render modal preview overlay at the top of the page"""
+    if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
+        if st.session_state.preview_doc_idx < len(st.session_state.all_responses_history):
+            response = st.session_state.all_responses_history[st.session_state.preview_doc_idx]
+            
+            # Modal overlay CSS and content
+            st.markdown(f"""
+            <div style="position: fixed; 
+                        top: 0; 
+                        left: 0; 
+                        width: 100%; 
+                        height: 100%; 
+                        background: rgba(0,0,0,0.5); 
+                        z-index: 1000; 
+                        display: flex; 
+                        justify-content: center; 
+                        align-items: flex-start; 
+                        padding-top: 50px;">
+                <div style="background: white; 
+                            border-radius: 15px; 
+                            max-width: 80%; 
+                            max-height: 80%; 
+                            overflow-y: auto; 
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                            position: relative;">
+                    <div style="padding: 30px; border-bottom: 1px solid #eee;">
+                        <h2 style="margin: 0; color: #333;">📖 Document Preview</h2>
+                        <button onclick="window.parent.postMessage('close_preview', '*')" 
+                                style="position: absolute; 
+                                       top: 15px; 
+                                       right: 20px; 
+                                       background: #ff4757; 
+                                       color: white; 
+                                       border: none; 
+                                       border-radius: 50%; 
+                                       width: 30px; 
+                                       height: 30px; 
+                                       cursor: pointer; 
+                                       font-size: 16px;">
+                            ×
+                        </button>
+                    </div>
+                    <div style="padding: 30px;">
+                        <div style="margin-bottom: 20px;">
+                            <strong>Name:</strong> {response['name']}<br>
+                            <strong>Type:</strong> {response['type']}<br>
+                            <strong>Tone:</strong> {response['tone']}<br>
+                            <strong>Created:</strong> {response['timestamp']}
+                        </div>
+                        <hr style="margin: 20px 0;">
+                        <div style="background: #f8f9fa; 
+                                    padding: 20px; 
+                                    border-radius: 10px; 
+                                    white-space: pre-line; 
+                                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                                    line-height: 1.6;">
+                            {response['content']}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Close button functionality
+            if st.button("❌ Close Preview", key="close_modal_preview", help="Close preview window"):
+                close_preview()
+                st.rerun()
 
 # --- Sidebar UI ---
 def render_sidebar():
@@ -167,6 +265,7 @@ def render_sidebar():
                         if st.button("👁️ View Full", key=f"all_preview_btn_{idx}"):
                             st.session_state.show_preview = True
                             st.session_state.preview_doc_idx = len(st.session_state.all_responses_history) - 1 - idx
+                            st.rerun()
                     
                     with col2:
                         try:
@@ -205,7 +304,7 @@ def render_chat():
     if st.session_state.messages:
         for i, message in enumerate(st.session_state.messages):
             role = message['role']
-            # Clean the content properly for better alignment
+            # Clean the content properly for better alignment and markdown removal
             content = clean_response_text(message['content'])
             
             if role == 'user':
@@ -340,7 +439,7 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Custom CSS for better styling
+    # Custom CSS for better styling and full-width layout
     st.markdown("""
     <style>
     .main > div {
@@ -358,26 +457,43 @@ def main():
         border-radius: 5px;
         margin-bottom: 0.5rem;
     }
-    /* Custom scrollbar for chat */
+    /* Enhanced chat container for full width */
     .chat-container {
-        max-height: 500px;
+        max-height: 600px;
         overflow-y: auto;
-        padding: 10px;
+        padding: 20px;
         margin-bottom: 20px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     .chat-container::-webkit-scrollbar {
-        width: 6px;
+        width: 8px;
     }
     .chat-container::-webkit-scrollbar-track {
         background: #f1f1f1;
-        border-radius: 3px;
+        border-radius: 4px;
     }
     .chat-container::-webkit-scrollbar-thumb {
         background: #888;
-        border-radius: 3px;
+        border-radius: 4px;
     }
     .chat-container::-webkit-scrollbar-thumb:hover {
         background: #555;
+    }
+    /* Modal overlay styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 50px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -387,6 +503,9 @@ def main():
     # Initialize session state
     init_session_state()
     
+    # Render modal preview first (overlay on top)
+    render_modal_preview()
+    
     # Render sidebar and get settings
     doc_type, tone, sender_name, sender_profession, language = render_sidebar()
     
@@ -395,166 +514,140 @@ def main():
         st.session_state.show_suggestions = True
         st.session_state.last_doc_type = doc_type
     
-    # Main content area
-    col1, col2 = st.columns([3, 1])
+    # FULL WIDTH MAIN CONTENT (removed column layout)
+    # Chat interface with enhanced full-width container
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    render_chat()
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    with col1:
-        # Chat interface with custom container
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        render_chat()
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Input interface
+    send_clicked, prompt = render_input(doc_type)
+    
+    # Process message - ENHANCED MARKDOWN CLEANING FOR REFINEMENT
+    if send_clicked and prompt.strip():
+        st.session_state.message_counter += 1
         
-        # Input interface
-        send_clicked, prompt = render_input(doc_type)
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.is_generating = True
+        st.session_state.show_suggestions = False
         
-        # Process message - PRESERVE ORIGINAL LLM FORMATTING WITH PROPER ALIGNMENT
-        if send_clicked and prompt.strip():
-            st.session_state.message_counter += 1
-            
-            # Add user message
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            st.session_state.is_generating = True
-            st.session_state.show_suggestions = False
-            
-            # Generate response
-            try:
-                with st.spinner("🤖 Generating response..."):
-                    llm = LLMService()
+        # Generate response
+        try:
+            with st.spinner("🤖 Generating response..."):
+                llm = LLMService()
+                
+                if st.session_state.document_history:
+                    # REFINEMENT MODE
+                    last_doc = st.session_state.document_history[-1]
                     
-                    if st.session_state.document_history:
-                        # REFINEMENT MODE
-                        last_doc = st.session_state.document_history[-1]
-                        
-                        st.info(f"🔄 Refining document: {last_doc.get('type', 'Unknown')}")
-                        
-                        # Call refinement with correct parameters
-                        result = llm.refine_document(
-                            current_document=last_doc["content"],
-                            refinement_prompt=prompt,
-                            doc_type=DocumentType(last_doc.get("type", doc_type)),
-                            tone=ToneType(last_doc.get("tone", tone)),
-                            history=[]
-                        )
-                        
-                        # Handle different response types from LLM
-                        if isinstance(result, dict):
-                            if "document" in result:
-                                refined_content = result["document"]
-                            elif "content" in result:
-                                refined_content = result["content"]
-                            else:
-                                refined_content = str(result)
-                        elif isinstance(result, str):
-                            refined_content = result
-                        elif hasattr(result, '__iter__'):
-                            # Handle streaming response
-                            refined_content = ""
-                            for chunk in result:
-                                if isinstance(chunk, dict):
-                                    refined_content += chunk.get("document", chunk.get("content", str(chunk)))
-                                else:
-                                    refined_content += str(chunk)
+                    st.info(f"🔄 Refining document: {last_doc.get('type', 'Unknown')}")
+                    
+                    # Call refinement with correct parameters
+                    result = llm.refine_document(
+                        current_document=last_doc["content"],
+                        refinement_prompt=prompt,
+                        doc_type=DocumentType(last_doc.get("type", doc_type)),
+                        tone=ToneType(last_doc.get("tone", tone)),
+                        history=[]
+                    )
+                    
+                    # Handle different response types from LLM
+                    if isinstance(result, dict):
+                        if "document" in result:
+                            refined_content = result["document"]
+                        elif "content" in result:
+                            refined_content = result["content"]
                         else:
                             refined_content = str(result)
-                        
-                        # Clean with proper alignment
-                        final_content = clean_response_text(refined_content)
-                        
-                        # Update the existing document instead of creating a new one
-                        st.session_state.document_history[-1]["content"] = final_content
-                        st.session_state.document_history[-1]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        # Add to complete history (this creates a new entry for refinement)
-                        add_to_all_responses_history(
-                            last_doc.get("type", doc_type), 
-                            last_doc.get("tone", tone), 
-                            final_content, 
-                            sender_name, 
-                            sender_profession
-                        )
-                        
-                        # Update current document
-                        st.session_state.current_document = final_content
-                        
-                        # Add assistant response
-                        st.session_state.messages.append({"role": "assistant", "content": final_content})
-                        
-                        st.success("✅ Document refined successfully!")
-                        
+                    elif isinstance(result, str):
+                        refined_content = result
+                    elif hasattr(result, '__iter__'):
+                        # Handle streaming response
+                        refined_content = ""
+                        for chunk in result:
+                            if isinstance(chunk, dict):
+                                refined_content += chunk.get("document", chunk.get("content", str(chunk)))
+                            else:
+                                refined_content += str(chunk)
                     else:
-                        # NEW DOCUMENT GENERATION
-                        st.info("📝 Generating new document...")
-                        
-                        result = llm.generate_document(
-                            doc_type=DocumentType(doc_type),
-                            tone=ToneType(tone),
-                            prompt=prompt,
-                            sender_name=sender_name,
-                            sender_profession=sender_profession,
-                            language=language
-                        )
-                        
-                        # Handle response
-                        if isinstance(result, dict) and "document" in result:
-                            full_response = result["document"]
-                        else:
-                            full_response = str(result)
-                        
-                        # Clean with proper alignment
-                        final_content = clean_response_text(full_response)
-                        
-                        # Add new document to history
-                        st.session_state.document_history.append({
-                            "type": doc_type,
-                            "tone": tone,
-                            "content": final_content,
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        })
-                        
-                        # Add to complete history
-                        add_to_all_responses_history(doc_type, tone, final_content, sender_name, sender_profession)
-                        
-                        # Update current document
-                        st.session_state.current_document = final_content
-                        
-                        # Add assistant response
-                        st.session_state.messages.append({"role": "assistant", "content": final_content})
-                        
-                        st.success("✅ New document generated successfully!")
+                        refined_content = str(result)
                     
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": f"Sorry, I encountered an error: {str(e)}"
-                })
-            
-            finally:
-                st.session_state.is_generating = False
-                st.rerun()
-    
-    with col2:
-        # Document preview for all responses history
-        if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
-            if st.session_state.preview_doc_idx < len(st.session_state.all_responses_history):
-                response = st.session_state.all_responses_history[st.session_state.preview_doc_idx]
+                    # Enhanced cleaning with markdown removal
+                    final_content = clean_response_text(refined_content)
+                    
+                    # Update the existing document instead of creating a new one
+                    st.session_state.document_history[-1]["content"] = final_content
+                    st.session_state.document_history[-1]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Add to complete history (this creates a new entry for refinement)
+                    add_to_all_responses_history(
+                        last_doc.get("type", doc_type), 
+                        last_doc.get("tone", tone), 
+                        final_content, 
+                        sender_name, 
+                        sender_profession
+                    )
+                    
+                    # Update current document
+                    st.session_state.current_document = final_content
+                    
+                    # Add assistant response
+                    st.session_state.messages.append({"role": "assistant", "content": final_content})
+                    
+                    st.success("✅ Document refined successfully!")
+                    
+                else:
+                    # NEW DOCUMENT GENERATION
+                    st.info("📝 Generating new document...")
+                    
+                    result = llm.generate_document(
+                        doc_type=DocumentType(doc_type),
+                        tone=ToneType(tone),
+                        prompt=prompt,
+                        sender_name=sender_name,
+                        sender_profession=sender_profession,
+                        language=language
+                    )
+                    
+                    # Handle response
+                    if isinstance(result, dict) and "document" in result:
+                        full_response = result["document"]
+                    else:
+                        full_response = str(result)
+                    
+                    # Enhanced cleaning with markdown removal
+                    final_content = clean_response_text(full_response)
+                    
+                    # Add new document to history
+                    st.session_state.document_history.append({
+                        "type": doc_type,
+                        "tone": tone,
+                        "content": final_content,
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                    
+                    # Add to complete history
+                    add_to_all_responses_history(doc_type, tone, final_content, sender_name, sender_profession)
+                    
+                    # Update current document
+                    st.session_state.current_document = final_content
+                    
+                    # Add assistant response
+                    st.session_state.messages.append({"role": "assistant", "content": final_content})
+                    
+                    st.success("✅ New document generated successfully!")
                 
-                st.markdown("### 📖 Response Preview")
-                st.markdown("---")
-                
-                st.markdown(f"**Name:** {response['name']}")
-                st.markdown(f"**Type:** {response['type']}")
-                st.markdown(f"**Tone:** {response['tone']}")
-                st.markdown(f"**Created:** {response['timestamp']}")
-                st.markdown("---")
-                
-                st.markdown("**Content:**")
-                # Display with preserved formatting but proper alignment
-                st.text(response['content'])
-                
-                if st.button("❌ Close", key="close_preview_btn"):
-                    close_preview()
-                    st.rerun()
+        except Exception as e:
+            st.error(f"❌ Error: {str(e)}")
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": f"Sorry, I encountered an error: {str(e)}"
+            })
+        
+        finally:
+            st.session_state.is_generating = False
+            st.rerun()
 
 if __name__ == "__main__":
     main()
