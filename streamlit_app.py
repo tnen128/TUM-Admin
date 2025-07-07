@@ -150,82 +150,6 @@ def add_to_all_responses_history(doc_type, tone, content, sender_name="", sender
     
     st.session_state.all_responses_history.append(response_entry)
 
-# --- Modal Preview Component ---
-def render_modal_preview():
-    """Render modal preview overlay at the top of the page"""
-    if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
-        if st.session_state.preview_doc_idx < len(st.session_state.all_responses_history):
-            response = st.session_state.all_responses_history[st.session_state.preview_doc_idx]
-            
-            # Create a container for the modal
-            modal_container = st.container()
-            
-            with modal_container:
-                # Modal overlay using Streamlit components
-                st.markdown("""
-                <style>
-                .modal-backdrop {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0,0,0,0.5);
-                    z-index: 1000;
-                }
-                .modal-content {
-                    position: fixed;
-                    top: 10%;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: white;
-                    border-radius: 15px;
-                    max-width: 80%;
-                    max-height: 80%;
-                    overflow-y: auto;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                    z-index: 1001;
-                    padding: 0;
-                }
-                </style>
-                <div class="modal-backdrop"></div>
-                """, unsafe_allow_html=True)
-                
-                # Modal content using Streamlit components
-                with st.container():
-                    st.markdown('<div class="modal-content">', unsafe_allow_html=True)
-                    
-                    # Header with close button
-                    col1, col2 = st.columns([4, 1])
-                    with col1:
-                        st.markdown("## 📖 Document Preview")
-                    with col2:
-                        if st.button("❌ Close", key="close_modal_btn", help="Close preview"):
-                            close_preview()
-                            st.rerun()
-                    
-                    st.markdown("---")
-                    
-                    # Document metadata
-                    st.markdown(f"**Name:** {response['name']}")
-                    st.markdown(f"**Type:** {response['type']}")
-                    st.markdown(f"**Tone:** {response['tone']}")
-                    st.markdown(f"**Created:** {response['timestamp']}")
-                    
-                    st.markdown("---")
-                    
-                    # Document content
-                    st.markdown("**Content:**")
-                    st.text_area(
-                        "Document Content",
-                        value=response['content'],
-                        height=400,
-                        disabled=True,
-                        label_visibility="collapsed"
-                    )
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
-
 # --- Sidebar UI ---
 def render_sidebar():
     with st.sidebar:
@@ -253,14 +177,24 @@ def render_sidebar():
         if st.session_state.all_responses_history:
             for idx, response in enumerate(reversed(st.session_state.all_responses_history)):
                 with st.expander(f"📄 {response['name']}", expanded=False):
-                    # Only show action buttons - no metadata or preview text
-                    col1, col2, col3 = st.columns(3)
+                    st.markdown(f"**Type:** {response['type']}")
+                    st.markdown(f"**Tone:** {response['tone']}")
+                    st.markdown(f"**Created:** {response['timestamp']}")
+                    st.markdown("---")
                     
+                    st.text_area(
+                        "Content Preview:",
+                        value=response['content'][:300] + "..." if len(response['content']) > 300 else response['content'],
+                        height=100,
+                        disabled=True,
+                        key=f"all_preview_text_{idx}"
+                    )
+                    
+                    col1, col2, col3 = st.columns(3)
                     with col1:
-                        if st.button("👁️ Preview", key=f"all_preview_btn_{idx}"):
+                        if st.button("👁️ View Full", key=f"all_preview_btn_{idx}"):
                             st.session_state.show_preview = True
                             st.session_state.preview_doc_idx = len(st.session_state.all_responses_history) - 1 - idx
-                            st.rerun()
                     
                     with col2:
                         try:
@@ -434,29 +368,12 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Custom CSS for better styling and removing colored divs
+    # Custom CSS for better styling
     st.markdown("""
     <style>
-    /* Remove colored div under title */
     .main > div {
         padding-top: 2rem;
     }
-    
-    /* Remove Streamlit's default colored header */
-    .stApp > header {
-        background: transparent;
-    }
-    
-    /* Remove any colored divs */
-    div[data-testid="stDecoration"] {
-        display: none;
-    }
-    
-    /* Remove colored top bar */
-    .stApp > div:first-child {
-        background: transparent;
-    }
-    
     .stForm {
         background-color: #f8f9fa;
         padding: 1rem;
@@ -469,27 +386,23 @@ def main():
         border-radius: 5px;
         margin-bottom: 0.5rem;
     }
-    /* Enhanced chat container for full width */
+    /* Custom scrollbar for chat */
     .chat-container {
-        max-height: 600px;
+        max-height: 500px;
         overflow-y: auto;
-        padding: 20px;
+        padding: 10px;
         margin-bottom: 20px;
-        background: #ffffff;
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        border: 1px solid #e9ecef;
     }
     .chat-container::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
     }
     .chat-container::-webkit-scrollbar-track {
         background: #f1f1f1;
-        border-radius: 4px;
+        border-radius: 3px;
     }
     .chat-container::-webkit-scrollbar-thumb {
         background: #888;
-        border-radius: 4px;
+        border-radius: 3px;
     }
     .chat-container::-webkit-scrollbar-thumb:hover {
         background: #555;
@@ -502,10 +415,6 @@ def main():
     # Initialize session state
     init_session_state()
     
-    # Render modal preview first (overlay on top)
-    if st.session_state.show_preview:
-        render_modal_preview()
-    
     # Render sidebar and get settings
     doc_type, tone, sender_name, sender_profession, language = render_sidebar()
     
@@ -514,140 +423,166 @@ def main():
         st.session_state.show_suggestions = True
         st.session_state.last_doc_type = doc_type
     
-    # FULL WIDTH MAIN CONTENT (removed column layout)
-    # Chat interface with enhanced full-width container
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    render_chat()
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Main content area
+    col1, col2 = st.columns([3, 1])
     
-    # Input interface
-    send_clicked, prompt = render_input(doc_type)
-    
-    # Process message - ENHANCED MARKDOWN CLEANING FOR REFINEMENT
-    if send_clicked and prompt.strip():
-        st.session_state.message_counter += 1
+    with col1:
+        # Chat interface with custom container
+        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+        render_chat()
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        # Add user message
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.session_state.is_generating = True
-        st.session_state.show_suggestions = False
+        # Input interface
+        send_clicked, prompt = render_input(doc_type)
         
-        # Generate response
-        try:
-            with st.spinner("🤖 Generating response..."):
-                llm = LLMService()
-                
-                if st.session_state.document_history:
-                    # REFINEMENT MODE
-                    last_doc = st.session_state.document_history[-1]
+        # Process message - ENHANCED MARKDOWN CLEANING FOR REFINEMENT
+        if send_clicked and prompt.strip():
+            st.session_state.message_counter += 1
+            
+            # Add user message
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            st.session_state.is_generating = True
+            st.session_state.show_suggestions = False
+            
+            # Generate response
+            try:
+                with st.spinner("🤖 Generating response..."):
+                    llm = LLMService()
                     
-                    st.info(f"🔄 Refining document: {last_doc.get('type', 'Unknown')}")
-                    
-                    # Call refinement with correct parameters
-                    result = llm.refine_document(
-                        current_document=last_doc["content"],
-                        refinement_prompt=prompt,
-                        doc_type=DocumentType(last_doc.get("type", doc_type)),
-                        tone=ToneType(last_doc.get("tone", tone)),
-                        history=[]
-                    )
-                    
-                    # Handle different response types from LLM
-                    if isinstance(result, dict):
-                        if "document" in result:
-                            refined_content = result["document"]
-                        elif "content" in result:
-                            refined_content = result["content"]
+                    if st.session_state.document_history:
+                        # REFINEMENT MODE
+                        last_doc = st.session_state.document_history[-1]
+                        
+                        st.info(f"🔄 Refining document: {last_doc.get('type', 'Unknown')}")
+                        
+                        # Call refinement with correct parameters
+                        result = llm.refine_document(
+                            current_document=last_doc["content"],
+                            refinement_prompt=prompt,
+                            doc_type=DocumentType(last_doc.get("type", doc_type)),
+                            tone=ToneType(last_doc.get("tone", tone)),
+                            history=[]
+                        )
+                        
+                        # Handle different response types from LLM
+                        if isinstance(result, dict):
+                            if "document" in result:
+                                refined_content = result["document"]
+                            elif "content" in result:
+                                refined_content = result["content"]
+                            else:
+                                refined_content = str(result)
+                        elif isinstance(result, str):
+                            refined_content = result
+                        elif hasattr(result, '__iter__'):
+                            # Handle streaming response
+                            refined_content = ""
+                            for chunk in result:
+                                if isinstance(chunk, dict):
+                                    refined_content += chunk.get("document", chunk.get("content", str(chunk)))
+                                else:
+                                    refined_content += str(chunk)
                         else:
                             refined_content = str(result)
-                    elif isinstance(result, str):
-                        refined_content = result
-                    elif hasattr(result, '__iter__'):
-                        # Handle streaming response
-                        refined_content = ""
-                        for chunk in result:
-                            if isinstance(chunk, dict):
-                                refined_content += chunk.get("document", chunk.get("content", str(chunk)))
-                            else:
-                                refined_content += str(chunk)
+                        
+                        # Enhanced cleaning with markdown removal
+                        final_content = clean_response_text(refined_content)
+                        
+                        # Update the existing document instead of creating a new one
+                        st.session_state.document_history[-1]["content"] = final_content
+                        st.session_state.document_history[-1]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        # Add to complete history (this creates a new entry for refinement)
+                        add_to_all_responses_history(
+                            last_doc.get("type", doc_type), 
+                            last_doc.get("tone", tone), 
+                            final_content, 
+                            sender_name, 
+                            sender_profession
+                        )
+                        
+                        # Update current document
+                        st.session_state.current_document = final_content
+                        
+                        # Add assistant response
+                        st.session_state.messages.append({"role": "assistant", "content": final_content})
+                        
+                        st.success("✅ Document refined successfully!")
+                        
                     else:
-                        refined_content = str(result)
+                        # NEW DOCUMENT GENERATION
+                        st.info("📝 Generating new document...")
+                        
+                        result = llm.generate_document(
+                            doc_type=DocumentType(doc_type),
+                            tone=ToneType(tone),
+                            prompt=prompt,
+                            sender_name=sender_name,
+                            sender_profession=sender_profession,
+                            language=language
+                        )
+                        
+                        # Handle response
+                        if isinstance(result, dict) and "document" in result:
+                            full_response = result["document"]
+                        else:
+                            full_response = str(result)
+                        
+                        # Enhanced cleaning with markdown removal
+                        final_content = clean_response_text(full_response)
+                        
+                        # Add new document to history
+                        st.session_state.document_history.append({
+                            "type": doc_type,
+                            "tone": tone,
+                            "content": final_content,
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        
+                        # Add to complete history
+                        add_to_all_responses_history(doc_type, tone, final_content, sender_name, sender_profession)
+                        
+                        # Update current document
+                        st.session_state.current_document = final_content
+                        
+                        # Add assistant response
+                        st.session_state.messages.append({"role": "assistant", "content": final_content})
+                        
+                        st.success("✅ New document generated successfully!")
                     
-                    # Enhanced cleaning with markdown removal
-                    final_content = clean_response_text(refined_content)
-                    
-                    # Update the existing document instead of creating a new one
-                    st.session_state.document_history[-1]["content"] = final_content
-                    st.session_state.document_history[-1]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    # Add to complete history (this creates a new entry for refinement)
-                    add_to_all_responses_history(
-                        last_doc.get("type", doc_type), 
-                        last_doc.get("tone", tone), 
-                        final_content, 
-                        sender_name, 
-                        sender_profession
-                    )
-                    
-                    # Update current document
-                    st.session_state.current_document = final_content
-                    
-                    # Add assistant response
-                    st.session_state.messages.append({"role": "assistant", "content": final_content})
-                    
-                    st.success("✅ Document refined successfully!")
-                    
-                else:
-                    # NEW DOCUMENT GENERATION
-                    st.info("📝 Generating new document...")
-                    
-                    result = llm.generate_document(
-                        doc_type=DocumentType(doc_type),
-                        tone=ToneType(tone),
-                        prompt=prompt,
-                        sender_name=sender_name,
-                        sender_profession=sender_profession,
-                        language=language
-                    )
-                    
-                    # Handle response
-                    if isinstance(result, dict) and "document" in result:
-                        full_response = result["document"]
-                    else:
-                        full_response = str(result)
-                    
-                    # Enhanced cleaning with markdown removal
-                    final_content = clean_response_text(full_response)
-                    
-                    # Add new document to history
-                    st.session_state.document_history.append({
-                        "type": doc_type,
-                        "tone": tone,
-                        "content": final_content,
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    })
-                    
-                    # Add to complete history
-                    add_to_all_responses_history(doc_type, tone, final_content, sender_name, sender_profession)
-                    
-                    # Update current document
-                    st.session_state.current_document = final_content
-                    
-                    # Add assistant response
-                    st.session_state.messages.append({"role": "assistant", "content": final_content})
-                    
-                    st.success("✅ New document generated successfully!")
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": f"Sorry, I encountered an error: {str(e)}"
+                })
+            
+            finally:
+                st.session_state.is_generating = False
+                st.rerun()
+    
+    with col2:
+        # Document preview for all responses history
+        if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
+            if st.session_state.preview_doc_idx < len(st.session_state.all_responses_history):
+                response = st.session_state.all_responses_history[st.session_state.preview_doc_idx]
                 
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": f"Sorry, I encountered an error: {str(e)}"
-            })
-        
-        finally:
-            st.session_state.is_generating = False
-            st.rerun()
+                st.markdown("### 📖 Response Preview")
+                st.markdown("---")
+                
+                st.markdown(f"**Name:** {response['name']}")
+                st.markdown(f"**Type:** {response['type']}")
+                st.markdown(f"**Tone:** {response['tone']}")
+                st.markdown(f"**Created:** {response['timestamp']}")
+                st.markdown("---")
+                
+                st.markdown("**Content:**")
+                # Display with preserved formatting but proper alignment
+                st.text(response['content'])
+                
+                if st.button("❌ Close", key="close_preview_btn"):
+                    close_preview()
+                    st.rerun()
 
 if __name__ == "__main__":
     main()
