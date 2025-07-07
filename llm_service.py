@@ -65,12 +65,11 @@ structure below. You must copy the exact wording from the prompt.
 
 EMAIL STRUCTURE (DO NOT ALTER OR REPHRASE)
 
-Announcement: [Insert a subject line derived exactly from the first phrase 
+Subject: [Insert a subject line derived exactly from the first phrase 
 or key idea in the prompt (max 10 words)]
 
 [Choose one of the following greetings according to the context:]
 Dear Students,
-Dear all,
 Dear MMDT students,
 Dear MIE students,
 Dear BIE students,
