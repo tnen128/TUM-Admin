@@ -38,14 +38,12 @@ def init_session_state():
         "current_document": None,
         "document_history": [],
         "is_generating": False,
-        "typing": False,
         "input_key": 0,
         "show_preview": False,
         "preview_doc_idx": None,
         "prompt_input": "",
         "show_suggestions": True,
         "selected_suggestion": None,
-        "clear_prompt_input": False,
         "last_doc_type": None,
         "exported_file": None,
         "exported_file_name": None,
@@ -72,6 +70,7 @@ def close_preview():
 # --- Sidebar UI ---
 def render_sidebar():
     with st.sidebar:
+        st.markdown('<div class="sidebar-header">', unsafe_allow_html=True)
         st.image("https://upload.wikimedia.org/wikipedia/commons/c/c8/Logo_of_the_Technical_University_of_Munich.svg", width=150)
         st.markdown("### Document Settings")
         doc_type = st.selectbox(
@@ -133,11 +132,11 @@ def render_sidebar():
         return doc_type, tone, sender_name, sender_profession, language
 
 # --- Chat UI ---
-def render_chat():
+def render_chat(messages):
     st.title("TUM Admin Assistant 🤖")
     chat_container = st.container()
     with chat_container:
-        for message in st.session_state.messages:
+        for message in messages:
             st.markdown(f"""
             <div class="chat-message {message['role']}">
                 <div class="content">
@@ -145,35 +144,6 @@ def render_chat():
                     <div class="message">{message['content']}</div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
-        if st.session_state.get("typing", False):
-            st.markdown("""
-            <div class="chat-message assistant" style="max-width: 300px; min-width: 80px; min-height: 50px; height: 50px; display: flex; align-items: center; justify-content: center; padding: 0.2rem 0.7rem;">
-                <div class="content" style="width:100%; height:100%; display: flex; align-items: center; justify-content: center;">
-                    <div class="avatar">🤖</div>
-                    <div class="message" style="font-size: 1.05rem; font-weight: 500; margin-left: 0.5rem; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%;">
-                        <span style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">Agent typing <span class="typing-indicator-dots" style="margin-left: 0.2rem;"><span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span></span>
-                    </div>
-                </div>
-            </div>
-            <style>
-            @keyframes blink {
-                0% { opacity: 0.2; }
-                20% { opacity: 1; }
-                100% { opacity: 0.2; }
-            }
-            .typing-indicator-dots .dot {
-                font-size: 1.2rem;
-                opacity: 0.2;
-                animation: blink 1.4s infinite both;
-            }
-            .typing-indicator-dots .dot:nth-child(2) {
-                animation-delay: 0.2s;
-            }
-            .typing-indicator-dots .dot:nth-child(3) {
-                animation-delay: 0.4s;
-            }
-            </style>
             """, unsafe_allow_html=True)
 
 # --- Input UI ---
@@ -188,9 +158,6 @@ def render_input(doc_type):
                 if cols[i].button(suggestion, key=f"suggestion_{i}"):
                     st.session_state["prompt_input"] = suggestion
                     st.session_state["selected_suggestion"] = i
-        if st.session_state.get("clear_prompt_input", False):
-            st.session_state["prompt_input"] = ""
-            st.session_state["clear_prompt_input"] = False
         prompt = st.text_area("", placeholder="Type your message here...", key="prompt_input", height=68)
         send_clicked = st.button("Send ✉️", key="send_button", disabled=st.session_state.is_generating)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -270,18 +237,16 @@ def main():
         st.session_state["selected_suggestion"] = None
         st.session_state["last_doc_type"] = doc_type
         st.session_state["prompt_input"] = ""
-    render_chat()
     send_clicked, prompt = render_input(doc_type)
+    # Handle sending and response in one run
+    messages = st.session_state.messages.copy()
     if send_clicked and prompt:
+        messages.append({"role": "user", "content": prompt})
+        st.session_state.is_generating = True
         st.session_state["show_suggestions"] = False
         st.session_state["selected_suggestion"] = None
-        st.session_state["clear_prompt_input"] = True
-        st.session_state.is_generating = True
-        st.session_state["typing"] = True
-        st.session_state.messages.append({"role": "user", "content": prompt})
-    if st.session_state.get("typing", False) and st.session_state.is_generating:
-        message_placeholder = st.empty()
-        with st.spinner(""):
+        st.session_state["prompt_input"] = ""
+        with st.spinner("Generating response..."):
             llm = LLMService()
             if st.session_state.document_history:
                 last_doc = st.session_state.document_history[-1]
@@ -292,60 +257,40 @@ def main():
                     chunks = []
                     async for chunk in llm.refine_document(
                         current_document=last_doc["content"],
-                        refinement_prompt=st.session_state["messages"][-1]["content"],
+                        refinement_prompt=prompt,
                         doc_type=DocumentType(doc_type_val),
                         tone=ToneType(tone_val),
                         history=history_docs
                     ):
                         chunks.append(chunk["document"])
-                        message_placeholder.markdown(f"""
-                        <div class=\"chat-message assistant\" style=\"max-width: 700px;\">
-                            <div class=\"content\">
-                                <div class=\"avatar\">🤖</div>
-                                <div class=\"message\">{''.join(chunks)}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        render_chat(messages + [{"role": "assistant", "content": ''.join(chunks)}])
                     return "".join(chunks)
                 full_response = asyncio.run(get_refined_chunks())
-                st.session_state.current_document = full_response
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-                st.session_state.document_history.append({
-                    "type": doc_type_val,
-                    "tone": tone_val,
-                    "content": full_response,
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
             else:
                 result = llm.generate_document(
                     doc_type=DocumentType(doc_type),
                     tone=ToneType(tone),
-                    prompt=st.session_state["messages"][-1]["content"],
+                    prompt=prompt,
                     sender_name=sender_name,
                     sender_profession=sender_profession,
                     language=language
                 )
-                if result:
-                    full_response = result["document"]
-                    for chunk in simulate_streaming(full_response):
-                        message_placeholder.markdown(f"""
-                        <div class=\"chat-message assistant\" style=\"max-width: 700px;\">
-                            <div class=\"content\">
-                                <div class=\"avatar\">🤖</div>
-                                <div class=\"message\">{chunk}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    st.session_state.current_document = full_response
-                    st.session_state.messages.append({"role": "assistant", "content": full_response})
-                    st.session_state.document_history.append({
-                        "type": doc_type,
-                        "tone": tone,
-                        "content": full_response,
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    })
+                full_response = result["document"] if result else "[Error: No response]"
+                for chunk in simulate_streaming(full_response):
+                    render_chat(messages + [{"role": "assistant", "content": chunk}])
+            messages.append({"role": "assistant", "content": full_response})
+            st.session_state.current_document = full_response
+            st.session_state.messages = messages
+            st.session_state.document_history.append({
+                "type": doc_type,
+                "tone": tone,
+                "content": full_response,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
         st.session_state.is_generating = False
-        st.session_state["typing"] = False
+    else:
+        render_chat(messages)
+    # Document Preview Modal
     if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
         doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
         st.markdown(
