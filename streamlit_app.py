@@ -37,7 +37,7 @@ def init_session_state():
         "messages": [],
         "current_document": None,
         "document_history": [],
-        "all_responses_history": [],  # New: Store all responses with proper naming
+        "all_responses_history": [],  # Store all responses with proper naming
         "is_generating": False,
         "show_preview": False,
         "preview_doc_idx": None,
@@ -67,76 +67,13 @@ def close_preview():
     st.session_state.preview_doc_idx = None
 
 def clean_response_text(text):
-    """Clean HTML tags and unwanted formatting from response"""
+    """Minimal cleaning - only remove HTML tags, preserve all spacing and formatting"""
     import re
-    # Remove HTML tags
+    # Only remove HTML tags, keep all original spacing and line breaks
     text = re.sub(r'<[^>]+>', '', text)
-    # Remove extra whitespace and normalize
-    text = re.sub(r'\s+', ' ', text).strip()
-    # Remove any remaining HTML entities
+    # Remove HTML entities but preserve spacing
     text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
     return text
-
-def format_email_response(raw_text, sender_name="", sender_profession=""):
-    """Format the response into a well-structured email format"""
-    lines = raw_text.strip().split('\n')
-    
-    # Filter out unwanted lines
-    filtered_lines = []
-    skip_next = False
-    
-    for line in lines:
-        line_strip = line.strip()
-        
-        # Skip announcement lines
-        if line_strip.lower().startswith('announcement:'):
-            continue
-        
-        # Skip duplicate greetings
-        if line_strip.lower() in ['dear students,', 'dear all,', 'dear mmdt students,', 'dear mie students,', 'dear bie students,']:
-            continue
-            
-        # Skip existing closing signatures
-        if line_strip.lower().startswith('kind regards,') or line_strip.lower().startswith('best regards,'):
-            skip_next = True
-            continue
-            
-        if skip_next and (line_strip.lower().find('technical university of munich') != -1 or 
-                         line_strip.lower().find('campus heilbronn') != -1):
-            skip_next = False
-            continue
-            
-        if line_strip:  # Only add non-empty lines
-            filtered_lines.append(line_strip)
-    
-    # Build the well-structured email
-    email_parts = []
-    email_parts.append("Dear Students,")
-    email_parts.append("")
-    
-    # Add main content with proper spacing
-    for line in filtered_lines:
-        email_parts.append(line)
-        email_parts.append("")  # Add spacing between paragraphs
-    
-    # Remove last empty line and add closing
-    if email_parts and email_parts[-1] == "":
-        email_parts.pop()
-    
-    email_parts.append("")
-    email_parts.append("Best regards,")
-    
-    # Add sender information
-    if sender_name:
-        if sender_profession:
-            email_parts.append(f"{sender_name}")
-            email_parts.append(f"{sender_profession}")
-        else:
-            email_parts.append(sender_name)
-    
-    email_parts.append("Technical University of Munich Campus Heilbronn")
-    
-    return "\n".join(email_parts)
 
 def get_response_name(doc_type, tone):
     """Generate a unique response name following the pattern: doctype_tone_response_number"""
@@ -247,7 +184,7 @@ def render_chat():
     if st.session_state.messages:
         for i, message in enumerate(st.session_state.messages):
             role = message['role']
-            content = clean_response_text(message['content'])
+            content = message['content']  # Use original content without additional cleaning
             
             if role == 'user':
                 # User message - aligned right with human icon
@@ -446,7 +383,7 @@ def main():
         # Input interface
         send_clicked, prompt = render_input(doc_type)
         
-        # Process message - ENHANCED WITH FORMATTING
+        # Process message - PRESERVE ORIGINAL LLM FORMATTING
         if send_clicked and prompt.strip():
             st.session_state.message_counter += 1
             
@@ -496,28 +433,27 @@ def main():
                         else:
                             refined_content = str(result)
                         
-                        # Clean and format the response
-                        refined_content = clean_response_text(refined_content)
-                        formatted_response = format_email_response(refined_content, sender_name, sender_profession)
+                        # MINIMAL cleaning - only remove HTML tags, preserve all original formatting
+                        final_content = clean_response_text(refined_content)
                         
                         # Update the existing document instead of creating a new one
-                        st.session_state.document_history[-1]["content"] = formatted_response
+                        st.session_state.document_history[-1]["content"] = final_content
                         st.session_state.document_history[-1]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
                         # Add to complete history (this creates a new entry for refinement)
                         add_to_all_responses_history(
                             last_doc.get("type", doc_type), 
                             last_doc.get("tone", tone), 
-                            formatted_response, 
+                            final_content, 
                             sender_name, 
                             sender_profession
                         )
                         
                         # Update current document
-                        st.session_state.current_document = formatted_response
+                        st.session_state.current_document = final_content
                         
                         # Add assistant response
-                        st.session_state.messages.append({"role": "assistant", "content": formatted_response})
+                        st.session_state.messages.append({"role": "assistant", "content": final_content})
                         
                         st.success("✅ Document refined successfully!")
                         
@@ -540,26 +476,25 @@ def main():
                         else:
                             full_response = str(result)
                         
-                        # Clean and format response
-                        full_response = clean_response_text(full_response)
-                        formatted_response = format_email_response(full_response, sender_name, sender_profession)
+                        # MINIMAL cleaning - only remove HTML tags, preserve all original formatting
+                        final_content = clean_response_text(full_response)
                         
                         # Add new document to history
                         st.session_state.document_history.append({
                             "type": doc_type,
                             "tone": tone,
-                            "content": formatted_response,
+                            "content": final_content,
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         })
                         
                         # Add to complete history
-                        add_to_all_responses_history(doc_type, tone, formatted_response, sender_name, sender_profession)
+                        add_to_all_responses_history(doc_type, tone, final_content, sender_name, sender_profession)
                         
                         # Update current document
-                        st.session_state.current_document = formatted_response
+                        st.session_state.current_document = final_content
                         
                         # Add assistant response
-                        st.session_state.messages.append({"role": "assistant", "content": formatted_response})
+                        st.session_state.messages.append({"role": "assistant", "content": final_content})
                         
                         st.success("✅ New document generated successfully!")
                     
@@ -590,7 +525,8 @@ def main():
                 st.markdown("---")
                 
                 st.markdown("**Content:**")
-                st.markdown(response['content'])
+                # Display with preserved formatting
+                st.text(response['content'])
                 
                 if st.button("❌ Close", key="close_preview_btn"):
                     close_preview()
