@@ -174,7 +174,17 @@ def render_input(doc_type):
     if st.session_state.document_history:
         st.info("🔄 **Refinement Mode**: Your next message will refine the latest document.")
     
-    # Input form
+    # Clear Chat button OUTSIDE the form
+    col_clear, col_spacer = st.columns([1, 4])
+    with col_clear:
+        if st.button("🗑️ Clear Chat", key="clear_chat"):
+            st.session_state.messages = []
+            st.session_state.document_history = []
+            st.session_state.current_document = None
+            st.session_state.show_suggestions = True
+            st.rerun()
+    
+    # Input form (without the Clear Chat button)
     with st.form(key="message_form", clear_on_submit=True):
         if st.session_state.document_history:
             placeholder_text = "Enter your refinement request (e.g., 'change course name to C++', 'make it more formal', etc.)"
@@ -188,24 +198,15 @@ def render_input(doc_type):
             key="user_input"
         )
         
-        col1, col2, col3 = st.columns([1, 1, 3])
-        with col1:
-            send_clicked = st.form_submit_button(
-                "Send ✉️", 
-                disabled=st.session_state.is_generating,
-                use_container_width=True
-            )
-        with col2:
-            if st.button("🗑️ Clear Chat", key="clear_chat"):
-                st.session_state.messages = []
-                st.session_state.document_history = []
-                st.session_state.current_document = None
-                st.session_state.show_suggestions = True
-                st.rerun()
+        # Only the Send button inside the form
+        send_clicked = st.form_submit_button(
+            "Send ✉️", 
+            disabled=st.session_state.is_generating,
+            use_container_width=True
+        )
         
-        with col3:
-            if st.session_state.is_generating:
-                st.info("🔄 Generating response...")
+        if st.session_state.is_generating:
+            st.info("🔄 Generating response...")
     
     return send_clicked, prompt
 
@@ -218,6 +219,27 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded"
     )
+    
+    # Custom CSS for better styling
+    st.markdown("""
+    <style>
+    .main > div {
+        padding-top: 2rem;
+    }
+    .stForm {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 10px;
+        border: 1px solid #e9ecef;
+    }
+    .stExpander {
+        background-color: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 5px;
+        margin-bottom: 0.5rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     st.title("📄 TUM Admin Document Generator")
     
