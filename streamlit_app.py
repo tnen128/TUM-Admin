@@ -132,10 +132,10 @@ def render_sidebar():
         return doc_type, tone, sender_name, sender_profession, language
 
 # --- Chat UI ---
-def render_chat(messages):
+def render_chat():
     st.markdown('<div class="tum-chat-title">TUM Admin Assistant 🤖</div>', unsafe_allow_html=True)
     st.markdown('<div class="tum-chat-container" style="height: 65vh; overflow-y: auto;">', unsafe_allow_html=True)
-    for message in messages:
+    for message in st.session_state.messages:
         role = message['role']
         avatar = '👤' if role == 'user' else '🤖'
         bubble_class = 'user' if role == 'user' else 'assistant'
@@ -149,11 +149,6 @@ def render_chat(messages):
 
 # --- Input UI ---
 def render_input(doc_type):
-    # Clear prompt_input if needed BEFORE rendering the text_area
-    if st.session_state.get("clear_prompt_input", False):
-        st.session_state["prompt_input"] = ""
-        st.session_state["clear_prompt_input"] = False
-
     with st.container():
         st.markdown('<div class="input-container">', unsafe_allow_html=True)
         suggested = SUGGESTED_PROMPTS.get(doc_type, [])
@@ -165,11 +160,11 @@ def render_input(doc_type):
                     st.session_state["prompt_input"] = suggestion
                     st.session_state["selected_suggestion"] = i
         prompt = st.text_area(
-            "Your prompt",  # Non-empty label for accessibility
-            placeholder="Type your message here...",
+            "Your prompt",
+            value=st.session_state.get("prompt_input", ""),
             key="prompt_input",
             height=68,
-            label_visibility="collapsed"  # Hide label visually
+            label_visibility="collapsed"
         )
         send_clicked = st.button("Send ✉️", key="send_button", disabled=st.session_state.is_generating)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -177,7 +172,7 @@ def render_input(doc_type):
 
 # --- Main App Logic ---
 def main():
-    st.title("TUM Admin")  # Always show the app title at the top
+    st.title("TUM Admin")
     st.markdown("""
     <style>
     .tum-chat-container {
@@ -243,7 +238,6 @@ def main():
         background: #e6e6e6;
         color: #222;
     }
-    /* Input container fixed at bottom */
     .input-container {
         position: fixed;
         bottom: 0;
@@ -269,18 +263,14 @@ def main():
         st.session_state["selected_suggestion"] = None
         st.session_state["last_doc_type"] = doc_type
         st.session_state["prompt_input"] = ""
-    # Render chat area first, then input at the bottom
-    messages = st.session_state.messages.copy()
-    render_chat(messages)
+    render_chat()
     send_clicked, prompt = render_input(doc_type)
-    # Handle sending and response in one run
     if send_clicked and prompt:
-        # Only append one user message per send
-        messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "user", "content": prompt})
         st.session_state.is_generating = True
         st.session_state["show_suggestions"] = False
         st.session_state["selected_suggestion"] = None
-        st.session_state["clear_prompt_input"] = True  # Set flag to clear input on next render
+        # Generate response synchronously
         with st.spinner("Generating response..."):
             llm = LLMService()
             if st.session_state.document_history:
@@ -288,19 +278,19 @@ def main():
                 doc_type_val = last_doc.get("type", doc_type)
                 tone_val = last_doc.get("tone", tone)
                 history_docs = [d["content"] for d in st.session_state.document_history]
-                async def get_refined_chunks():
-                    chunks = []
-                    async for chunk in llm.refine_document(
-                        current_document=last_doc["content"],
-                        refinement_prompt=prompt,
-                        doc_type=DocumentType(doc_type_val),
-                        tone=ToneType(tone_val),
-                        history=history_docs
-                    ):
-                        chunks.append(chunk["document"])
-                        render_chat(messages + [{"role": "assistant", "content": ''.join(chunks)}])
-                    return "".join(chunks)
-                full_response = asyncio.run(get_refined_chunks())
+                # Synchronous call for refinement
+                result = llm.refine_document(
+                    current_document=last_doc["content"],
+                    refinement_prompt=prompt,
+                    doc_type=DocumentType(doc_type_val),
+                    tone=ToneType(tone_val),
+                    history=history_docs
+                )
+                # If result is a generator, join chunks; else, use as is
+                if hasattr(result, '__iter__') and not isinstance(result, str):
+                    full_response = "".join(chunk["document"] for chunk in result)
+                else:
+                    full_response = result["document"] if isinstance(result, dict) else str(result)
             else:
                 result = llm.generate_document(
                     doc_type=DocumentType(doc_type),
@@ -311,12 +301,8 @@ def main():
                     language=language
                 )
                 full_response = result["document"] if result else "[Error: No response]"
-                for chunk in simulate_streaming(full_response):
-                    render_chat(messages + [{"role": "assistant", "content": chunk}])
-            # Only append one assistant message per send
-            messages.append({"role": "assistant", "content": full_response})
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
             st.session_state.current_document = full_response
-            st.session_state.messages = messages
             st.session_state.document_history.append({
                 "type": doc_type,
                 "tone": tone,
@@ -324,19 +310,14 @@ def main():
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
         st.session_state.is_generating = False
-    # Document Preview Modal
+        st.session_state["prompt_input"] = ""  # Clear input after send
+    # Document Preview Modal (use expander for robust refresh)
     if st.session_state.show_preview and st.session_state.preview_doc_idx is not None:
         doc = st.session_state.document_history[-(st.session_state.preview_doc_idx+1)]
-        st.markdown(
-            f'''<div style="background: #23272b; border-radius: 1.2rem; box-shadow: 0 12px 48px rgba(0,100,170,0.22); max-width: 900px; margin: 3% auto 2rem auto; padding: 2.7rem 2.5rem 2.2rem 2.5rem; border: 2.5px solid #0064AA;">
-            <div style="font-size: 1.5rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; margin-bottom: 1.5rem; text-align: left;">
-                📢 Announcement Preview
-            </div>
-            <div style="background: #181c20; border-radius: 0.9rem; padding: 1.6rem 1.3rem; color: #f5f5f5; font-size: 1.18rem; line-height: 1.8; min-height: 260px; max-height: 600px; overflow-y: auto; white-space: pre-wrap; border: 1px solid #333;">
-            {doc['content'].replace('<','&lt;').replace('>','&gt;').rstrip('</div>').rstrip()}</div></div>''',
-            unsafe_allow_html=True
-        )
-        st.button("Close Preview", on_click=close_preview, key="close_preview_btn", help="Close this preview")
+        with st.expander("Document Preview", expanded=True):
+            st.markdown(doc['content'])
+            if st.button("Close Preview"):
+                st.session_state.show_preview = False
     if st.session_state.exported_file:
         st.download_button(
             label=f"Download {st.session_state.exported_file_name}",
