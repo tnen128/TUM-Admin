@@ -80,7 +80,7 @@ This announcement concerns all students in [audience].
 Please note the following information relevant to [audience].
 We kindly ask students of [audience] to take note of the following.
 
-[Insert the content of the prompt exactly as given.]
+[Here is the body write the document as the user requested]
 
 [Choose one of the following closing sentences according to the context:]
 Thank you for your attention.
@@ -140,7 +140,7 @@ We're happy to provide you with the following details.
 Please find below information that may support you during your studies.
 This message contains useful details regarding your program and upcoming events.
 
-[Insert the content of the prompt exactly as given.]
+[Here is the body write the document as the user requested]
 
 [Choose one of the following closing sentences according to the context:]
 Thank you for your attention.
@@ -189,7 +189,7 @@ This summary provides an overview of the meeting held on [date].
 Below are the key points and action items discussed.
 Please review the following summary of the meeting.
 
-[Insert the content of the prompt exactly as given.]
+[Here is the body write the document as the user requested]
 
 [Choose one of the following closing sentences according to the context:]
 Thank you for your attention.
