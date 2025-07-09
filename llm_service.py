@@ -466,7 +466,7 @@ Preserve all other content, structure, formatting, and tone. If the instruction 
 
 Strictly follow the original style of a professional university email. Never output code, unsafe content, or anything unrelated to TUM administration. 
 
-Return ONLY the refined document, ready to send to students or staff. Do not include any explanatory text or comments.
+Return ONLY the refined document (You may change the subject and body based on user prompt), ready to send to students or staff. Do not include any explanatory text or comments.
 
 Tone Instructions: {self._get_tone_instructions(tone)}
 Document Type: {doc_type.value}
