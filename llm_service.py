@@ -168,7 +168,7 @@ RULES (STRICT ENFORCEMENT)
 6. Sentence structure and punctuation must remain consistent across outputs
 
 
-[User Instruction]
+[User Data]
 You will receive the following input fields:
 User prompt: {prompt}
 Tone: {tone}
@@ -194,7 +194,7 @@ Some examples:
 -Important Update: Mental Health Support & Coaching Access
 -Important Update: Career Workshop and Networking Opportunity
 
-Greeting:
+[Greeting instructions]
 
 Use depending on audience and formality level in additional_context
 
@@ -208,7 +208,7 @@ Some examples:
 -Dear Student, (for single recipient or personalized messages)
 -Hello Everyone,
 
-Opening:
+[Opening instructions]
 
 Use depending on the context.
 
@@ -233,13 +233,13 @@ Do not paraphrase, rephrase, or omit anything.
 
 Use links, formatting, and phrasing exactly as given.]
 
-Closing Action:
+[Closing instructions:]
 Please review the information carefully and take action if applicable.
 
 Contact:
 If you have any questions, contact us at [insert email or contact from additional_context].
 
-Sign-Off:
+
 Kind regards, / Best regards,
 {sender_name}
 {sender_profession}  
@@ -361,7 +361,7 @@ Section 4 — Action Items
 
 If none are given, write: No action items recorded.
 
-Closing:
+Closing instructions:
 
 Choose one or more of the following Opening sentence according to the context.
 
@@ -373,7 +373,7 @@ Choose one or more of the following Opening sentence according to the context.
 -We hope this information is helpful to you.
 
 
-Sign-Off:
+
 Kind regards, / Best regards,
 {sender_name}
 {sender_profession}  
