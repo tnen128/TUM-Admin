@@ -182,6 +182,7 @@ Do not alter the format, wording, order, or style.
 
 EMAIL STRUCTURE (DO NOT ALTER OR REPHRASE)
 (Insert a subject line derived exactly from the first phrase or key idea in key_points (max 10 words))
+
 Only vary the part after the prefix. Always start with "Important Update:"
 
 Some examples:
@@ -223,13 +224,23 @@ Some examples:
 Body instructions:
 Insert key_points in the order provided.
 
-Use semicolons for short, list-style updates.
+If multiple key points are provided, present them as bulleted items.
 
-Use full sentences for multi-clause, date-based, or detailed points.
+Preserve the exact order, punctuation, and sentence structure (e.g., semicolons vs. periods).
 
-Do not paraphrase, rephrase, or omit anything.
+Do not paraphrase or summarize.
 
-Use links, formatting, and phrasing if as given.
+Additional Information:
+Include the following only if mentioned explicitly in additional_context:
+
+If a platform is mentioned (e.g., Moodle, Zoom), include:
+“Please note that this will take place via [platform].”
+
+If a link is included:
+“For more details, please visit: [URL]”
+
+If a contact person or email is listed:
+“If you have any questions, contact: [email address]”
 
 Closing Action:
 Choose one of the following Opening sentence according to the context.
