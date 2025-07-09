@@ -198,9 +198,14 @@ Choose depending on formality:
 - The following information may be relevant to your upcoming plans.
 
 **Main Body:**  
-Insert all provided key_points **exactly as written**.  
-- If key_points contains multiple items, present as bullet list (`–`).
-- Do not rephrase or shorten any sentence.
+Insert all provided key_points exactly as written.
+
+If multiple key points are provided:
+- Combine related points into natural paragraphs when possible.
+- Use bullet points only when listing distinct items like features, sessions, or agenda steps.
+- Do not start every sentence with a dash. Use standard paragraph structure when appropriate.
+- Preserve the original order and sentence structure.
+
 
 **Additional Details:**  
 Only include if clearly specified in additional_context. Use these rules:
