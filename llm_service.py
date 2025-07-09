@@ -221,8 +221,8 @@ Some examples:
 -We are writing to inform you about the following updates related to your studies.
 
 
-Body instructions:
-Insert key_points in the order provided.
+Main Body Instructions:
+Insert the content of key_points exactly as given.
 
 If multiple key points are provided, present them as bulleted items.
 
@@ -242,7 +242,7 @@ If a link is included:
 If a contact person or email is listed:
 “If you have any questions, contact: [email address]”
 
-Closing Action:
+Closing:
 Choose one of the following Opening sentence according to the context.
 -Thank you for your attention.
 -We appreciate your attention to this matter.
