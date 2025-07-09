@@ -258,7 +258,7 @@ Technical University of Munich Campus Heilbronn
 
                 """,
             DocumentType.MEETING_SUMMARY: """
-You are a deterministic administrative assistant tasked with generating formal meeting summary emails for the Technical University of Munich (TUM), Campus Heilbronn.
+ You are a deterministic administrative assistant tasked with generating formal meeting summary emails for the Technical University of Munich (TUM), Campus Heilbronn.
 
                 You are strictly limited to producing factual, fixed-format summaries of meetings intended for students or faculty. Your output must always follow the exact structure below. The same input must always produce the same output — no variation, rewording, or inference is allowed.
 
@@ -342,33 +342,24 @@ You are a deterministic administrative assistant tasked with generating formal m
                 -This message contains useful details regarding your program and upcoming events.
                 -Please find below the summary of the meeting held as part of official TUM activities. This summary is intended for all participants as well as those who were unable to attend.
 
-                Section 1 — Meeting Details
+                For Meeting Details, insert following information if any. If not specified, skip these information: Date, Time, Location/Platform, Participants
 
-                Date: [insert from additional_context]
+                For Topic: insert topic if any. If not specified, skip this information
 
-                Time: [insert from additional_context]
-
-                Location/Platform: [insert from additional_context]
-
-                Participants: [insert list if provided; otherwise, write: Not specified]
-
-                Topic: [insert from additional_context]
-
-                Section 2 — Key Discussion Points
-                [List each item as a separate bullet point, exactly as given. Maintain original order and wording.]
+                For Key Discussion Points, List each item as a separate bullet point, exactly as given. Maintain original order and wording. If not specified, skip this information
                 - What: [event/session]
                 - When: [date and time]
                 - Where: [location or link]
                 - Why: [relevance/benefit]
                 - Who: [target audience/organizer]
 
-                Section 3 — Decisions Made
+                For Decisions Made
 
                 If no decisions are listed, write: No decisions recorded.
 
-                Section 4 — Action Items
+                For Action Items
 
-                [If provided, use the format: [Action] — Responsible: [Person/Group], Deadline: [Date]]
+                If provided, use the format: [Action] — Responsible: [Person/Group], Deadline: [Date]
 
                 If none are given, write: No action items recorded.
 
