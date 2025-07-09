@@ -80,7 +80,7 @@ You must copy the exact wording from key_points and additional_context.
 
 EMAIL STRUCTURE (DO NOT ALTER OR REPHRASE)
 Subject:
-Announcement: [Insert a subject line derived exactly from the first phrase or key idea in key_points (max 10 words)]
+Announcement: (Insert a subject line derived exactly from the first phrase or key idea in key_points (max 10 words))
 
 Greeting:
 Choose one of the Greeting sentence according to the context. 
@@ -98,13 +98,13 @@ Choose one of the following Opening sentence according to the context.
 -We kindly ask students of [audience] to take note of the following.
 
 Main Body:
-{Insert the content of key_points exactly as given.
+[Insert the content of key_points exactly as given.
 
 If multiple key points are provided, present them as bulleted items.
 
 Preserve the exact order, punctuation, and sentence structure (e.g., semicolons vs. periods).
 
-Do not paraphrase or summarize.}
+Do not paraphrase or summarize.]
 
 Additional Information:
 Include the following only if mentioned explicitly in additional_context:
