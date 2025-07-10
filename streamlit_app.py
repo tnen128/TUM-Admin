@@ -155,7 +155,6 @@ def add_to_all_responses_history(doc_type, tone, content, sender_name="", sender
 # --- Sidebar UI ---
 def render_sidebar():
     with st.sidebar:
-        st.markdown("### TUM Document Generator")
         
         # Logo with error handling
         try:
