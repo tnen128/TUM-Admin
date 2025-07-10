@@ -22,7 +22,7 @@ class LLMService:
             self.llm = ChatGoogleGenerativeAI(
                 model="gemini-2.0-flash",
                 google_api_key=self.api_key,
-                temperature=0.7,
+                temperature=0.5,
                 streaming=True
             )
             self.conversation_memories = {}
@@ -78,7 +78,7 @@ class LLMService:
 
             EMAIL STRUCTURE (DO NOT ALTER OR REPHRASE)
 
-            (Insert a subject line derived exactly from the first phrase or key idea in key_points (max 10 words))
+            (Insert a subject line derived exactly from the first phrase or key idea in key_points of the Prompt (max 10 words))
 
             Greeting:
             Choose one of the Greeting sentence according to the context. 
@@ -96,7 +96,7 @@ class LLMService:
             -We kindly ask students of [audience] to take note of the following.
 
             Main Body Instructions:
-            Insert the content of key_points exactly as given.
+            Insert the content of key_points of the Prompt exactly as given.
 
             If multiple key points are provided, present them as bulleted items.
 
@@ -170,7 +170,7 @@ class LLMService:
             **EMAIL STRUCTURE (DO NOT ALTER):**
 
             **Subject:**  
-            Always begin with **“Important Update:”**, followed by the main topic or event title from key_points, maximum 10 words. Use title case formatting (capitalize each major word).  
+            Always begin with **“Important Update:”**, followed by the main topic or event title from key_points of the Prompt, maximum 10 words. Use title case formatting (capitalize each major word).  
             Examples:
             - Important Update: Campus Funfair on 4 July
             - Important Update: Registration Instructions for Summer Semester
@@ -192,7 +192,7 @@ class LLMService:
             - The following information may be relevant to your upcoming plans.
 
             **Main Body:**  
-            Insert all provided key_points exactly as written.
+            Insert all provided key_points of the Prompt exactly as written.
 
             If multiple key points are provided:
             - Combine related points into natural paragraphs when possible.
