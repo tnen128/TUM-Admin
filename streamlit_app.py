@@ -169,7 +169,7 @@ def render_sidebar():
         )
         sender_name = st.text_input("Sender Name", value="")
         sender_profession = st.text_input("Sender Profession", value="")
-        language = st.selectbox("Language", options=["English", "German", "Both"], index=0)
+        language = st.selectbox("Language", options=["English", "German", "English and German"], index=0)
         
         st.markdown("---")
         st.markdown("### 📜 All Responses History")
