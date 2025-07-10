@@ -363,8 +363,8 @@ TONE APPLICATION: Professional and informative, maintaining appropriate formalit
             response = self.model.generate_content(
                 full_prompt,
                 generation_config=genai.types.GenerationConfig(
-                    temperature=0.3,
-                    top_p=0.8,
+                    temperature=0.5,
+                    top_p=0.5,
                     top_k=40                )
             )
             
@@ -444,8 +444,8 @@ OUTPUT: Return only the refined document with the requested changes applied. No 
             response = self.model.generate_content(
                 refinement_template,
                 generation_config=genai.types.GenerationConfig(
-                    temperature=0.2,
-                    top_p=0.8,
+                    temperature=0.5,
+                    top_p=0.5,
                     top_k=40,
                 )
             )
