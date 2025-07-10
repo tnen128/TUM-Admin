@@ -189,18 +189,7 @@ def render_sidebar():
             help="Required field - Your professional title or role"
         )
         
-        # Smart validation feedback
-        validation_status = []
-        if not sender_name.strip():
-            validation_status.append("Sender Name")
-        if not sender_profession.strip():
-            validation_status.append("Sender Profession")
-        
-        if validation_status:
-            st.error(f"⚠️ Required: {', '.join(validation_status)}")
-        else:
-            st.success("✅ All required fields completed")
-        
+
         language = st.selectbox("Language", options=["English", "German"], index=0)
         
         st.markdown("---")
