@@ -160,7 +160,7 @@ def render_sidebar():
         try:
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                st.image("assets/logo.png", width=500)
+                st.image("assets/logo.png")
         except:
             # Fallback to original logo if custom logo not found
             st.image("https://upload.wikimedia.org/wikipedia/commons/c/c8/Logo_of_the_Technical_University_of_Munich.svg", width=150)
