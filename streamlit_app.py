@@ -158,7 +158,7 @@ def render_sidebar():
         
         # Logo with error handling
         try:
-            st.image("assets/tum_custom_logo.png", width=150)
+            st.image("assets/TUM_Admin_logo.png", width=150)
         except:
             # Fallback to original logo if custom logo not found
             st.image("https://upload.wikimedia.org/wikipedia/commons/c/c8/Logo_of_the_Technical_University_of_Munich.svg", width=150)
