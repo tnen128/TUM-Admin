@@ -51,7 +51,9 @@ def init_session_state():
         "refinement_mode": False,
         "current_prompt": "",
         "form_key": 0,
-        "response_counters": {}  # Track response numbers per doc_type + tone combination
+        "response_counters": {},  # Track response numbers per doc_type + tone combination
+        "prompt_just_sent": False,  # Flag to track prompt submission
+        "clear_input": False        # Flag to clear input field
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -154,7 +156,13 @@ def add_to_all_responses_history(doc_type, tone, content, sender_name="", sender
 def render_sidebar():
     with st.sidebar:
         st.markdown("### TUM Document Generator")
-        st.image("https://upload.wikimedia.org/wikipedia/commons/c/c8/Logo_of_the_Technical_University_of_Munich.svg", width=150)
+        
+        # Logo with error handling
+        try:
+            st.image("assets/tum_custom_logo.png", width=150)
+        except:
+            # Fallback to original logo if custom logo not found
+            st.image("https://upload.wikimedia.org/wikipedia/commons/c/c8/Logo_of_the_Technical_University_of_Munich.svg", width=150)
         
         st.markdown("### Document Settings")
         doc_type = st.selectbox(
@@ -330,6 +338,16 @@ def render_input(doc_type, sender_name="", sender_profession=""):
     # Validation logic
     fields_valid = sender_name.strip() and sender_profession.strip()
     
+    # Force clear current_prompt if it was just processed
+    if st.session_state.get("prompt_just_sent", False):
+        st.session_state.current_prompt = ""
+        st.session_state.prompt_just_sent = False
+    
+    # Check if input should be cleared
+    if st.session_state.get("clear_input", False):
+        st.session_state.current_prompt = ""
+        st.session_state.clear_input = False
+    
     # Show suggested prompts only for new documents
     suggested = SUGGESTED_PROMPTS.get(doc_type, [])
     if st.session_state.show_suggestions and suggested and not st.session_state.document_history:
@@ -364,14 +382,15 @@ def render_input(doc_type, sender_name="", sender_profession=""):
         else:
             placeholder_text = "Enter your prompt to generate a new document..."
         
-        # Get default value from session state
+        # Get default value from session state - ensure it's empty after processing
         default_value = st.session_state.get("current_prompt", "")
         
         prompt = st.text_area(
             "Your message:",
             placeholder=placeholder_text,
             height=100,
-            value=default_value
+            value=default_value,
+            key=f"prompt_input_{st.session_state.form_key}"  # Add unique key
         )
         
         # Dynamic button state with helpful messaging
@@ -390,8 +409,9 @@ def render_input(doc_type, sender_name="", sender_profession=""):
         if st.session_state.is_generating:
             st.info("🔄 Generating response...")
     
-    # Clear current_prompt after form is processed
+    # Set flag when prompt is sent and clear current_prompt
     if send_clicked:
+        st.session_state.prompt_just_sent = True
         st.session_state.current_prompt = ""
     
     return send_clicked, prompt
@@ -552,6 +572,11 @@ def main():
                         
                         st.success("✅ Document refined successfully!")
                         
+                        # Force form reset for next input
+                        st.session_state.form_key += 1
+                        st.session_state.current_prompt = ""
+                        st.session_state.clear_input = True
+                        
                     else:
                         # NEW DOCUMENT GENERATION
                         st.info("📝 Generating new document...")
@@ -592,6 +617,11 @@ def main():
                         st.session_state.messages.append({"role": "assistant", "content": final_content})
                         
                         st.success("✅ New document generated successfully!")
+                        
+                        # Force form reset for next input
+                        st.session_state.form_key += 1
+                        st.session_state.current_prompt = ""
+                        st.session_state.clear_input = True
                     
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
