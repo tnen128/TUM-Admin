@@ -169,7 +169,14 @@ def render_sidebar():
         )
         sender_name = st.text_input("Sender Name", value="")
         sender_profession = st.text_input("Sender Profession", value="")
-        language = st.selectbox("Language", options=["English", "German", "English and German"], index=0)
+        language = st.selectbox("Language", options=["English", "German"], index=0)
+
+        # validation warnings
+        if not sender_name.strip():
+            st.warning("⚠️ Sender Name is required")
+        if not sender_profession.strip():
+            st.warning("⚠️ Sender Profession is required")
+        
         
         st.markdown("---")
         st.markdown("### 📜 All Responses History")
