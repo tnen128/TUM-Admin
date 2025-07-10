@@ -167,16 +167,34 @@ def render_sidebar():
             options=[t.value for t in ToneType],
             format_func=lambda x: x.replace("_", " ").title()
         )
-        sender_name = st.text_input("Sender Name", value="")
-        sender_profession = st.text_input("Sender Profession", value="")
-        language = st.selectbox("Language", options=["English", "German"], index=0)
-
-        # validation warnings
-        if not sender_name.strip():
-            st.warning("⚠️ Sender Name is required")
-        if not sender_profession.strip():
-            st.warning("⚠️ Sender Profession is required")
         
+        # Enhanced mandatory fields with better UX
+        sender_name = st.text_input(
+            "👤 Sender Name *", 
+            value="",
+            placeholder="Enter your full name",
+            help="Required field - This will appear as the document sender"
+        )
+        sender_profession = st.text_input(
+            "💼 Sender Profession *", 
+            value="",
+            placeholder="e.g., Professor, Administrator, Dean",
+            help="Required field - Your professional title or role"
+        )
+        
+        # Smart validation feedback
+        validation_status = []
+        if not sender_name.strip():
+            validation_status.append("Sender Name")
+        if not sender_profession.strip():
+            validation_status.append("Sender Profession")
+        
+        if validation_status:
+            st.error(f"⚠️ Required: {', '.join(validation_status)}")
+        else:
+            st.success("✅ All required fields completed")
+        
+        language = st.selectbox("Language", options=["English", "German"], index=0)
         
         st.markdown("---")
         st.markdown("### 📜 All Responses History")
@@ -308,7 +326,10 @@ def render_chat():
                 """, unsafe_allow_html=True)
 
 # --- Input UI ---
-def render_input(doc_type):
+def render_input(doc_type, sender_name="", sender_profession=""):
+    # Validation logic
+    fields_valid = sender_name.strip() and sender_profession.strip()
+    
     # Show suggested prompts only for new documents
     suggested = SUGGESTED_PROMPTS.get(doc_type, [])
     if st.session_state.show_suggestions and suggested and not st.session_state.document_history:
@@ -316,10 +337,13 @@ def render_input(doc_type):
         cols = st.columns(len(suggested))
         for i, suggestion in enumerate(suggested):
             if cols[i].button(suggestion, key=f"suggestion_{i}_{st.session_state.message_counter}"):
-                # Store suggestion and increment form key to reset form
-                st.session_state.current_prompt = suggestion
-                st.session_state.form_key += 1
-                st.rerun()
+                if fields_valid:
+                    # Store suggestion and increment form key to reset form
+                    st.session_state.current_prompt = suggestion
+                    st.session_state.form_key += 1
+                    st.rerun()
+                else:
+                    st.error("Please complete required fields in the sidebar first.")
     
     # Clear Chat button OUTSIDE the form
     col_clear, col_spacer = st.columns([1, 4])
@@ -350,9 +374,16 @@ def render_input(doc_type):
             value=default_value
         )
         
+        # Dynamic button state with helpful messaging
+        if not fields_valid:
+            st.warning("💡 Complete the required fields in the sidebar to enable document generation.")
+            button_label = "Complete Required Fields First"
+        else:
+            button_label = "Send ✉️"
+        
         send_clicked = st.form_submit_button(
-            "Send ✉️", 
-            disabled=st.session_state.is_generating,
+            button_label,
+            disabled=st.session_state.is_generating or not fields_valid,
             use_container_width=True
         )
         
@@ -440,10 +471,15 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Input interface
-        send_clicked, prompt = render_input(doc_type)
+        send_clicked, prompt = render_input(doc_type, sender_name, sender_profession)
         
         # Process message - ENHANCED MARKDOWN CLEANING FOR REFINEMENT
         if send_clicked and prompt.strip():
+            # Double-check validation (safety net)
+            if not sender_name.strip() or not sender_profession.strip():
+                st.error("❌ System Error: Required fields validation failed. Please refresh and try again.")
+                st.stop()
+            
             st.session_state.message_counter += 1
             
             # Add user message
