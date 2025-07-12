@@ -1,7 +1,15 @@
 
-# 🧠 TUM Admin Document Generator
+<p align="center">
+  <img src="assets/TUM_Admin_logo.PNG" width="100" alt="TUM Admin Logo"/>
+</p>
 
-An AI-powered assistant for generating formal university documents such as announcements, student communications, and meeting summaries—designed specifically for administrative staff at TUM.
+<h1 align="center">TUM Admin Document Generator</h1>
+
+<p align="center"><em>AI-Powered Assistant for University Communication</em></p>
+
+<p align="center">
+  <strong>M.Sc. Information Engineering – Technische Universität München</strong>
+</p>
 
 ---
 
@@ -72,7 +80,6 @@ streamlit run app.py
 | --------------------------- | ------------------------ |
 | Avg. Document Generation    | < 20 seconds             |
 | Estimated Weekly Time Saved | \~2–3 hours per staff    |
-| User Satisfaction Score     | 4.7 / 5 (pilot feedback) |
 
 ---
 
