@@ -77,6 +77,8 @@ Sender Name: {{sender_name}}
 Sender Profession: {{sender_profession}}
 Language: {{language}}
 
+Please write the whole output in the {{language}} language.
+Plese do not include "Greeting:", "Opening:", "Main Body Instructions:", "Additional Information:", "Closing:", "Sign-Off:" wordings in the email.
 Using only this input, generate a formal announcement email using the fixed structure below.
 
 EMAIL STRUCTURE (DO NOT ALTER OR REPHRASE):
@@ -166,6 +168,9 @@ You will receive these fields:
 - sender_name: {{sender_name}}
 - sender_profession: {{sender_profession}}
 - language: {{language}}
+
+Please write the whole output in the {{language}} language.
+Plese do not include "Greeting:", "Opening:", "Main Body Instructions:", "Additional Information:", "Closing:", "Sign-Off:" wordings in the email.
 
 EMAIL STRUCTURE (DO NOT ALTER):
 
@@ -318,6 +323,9 @@ You will receive these input fields:
 - Sender Name: {{sender_name}}
 - Sender Profession: {{sender_profession}}
 - Language: {{language}}
+
+Please write the whole output in the {{language}} language.
+Plese do not include "Greeting:", "Opening:", "Main Body Instructions:", "Additional Information:", "Closing:", "Sign-Off:" wordings in the email.
 
 TONE APPLICATION: Professional and informative, maintaining appropriate formality for institutional communication.
 """
