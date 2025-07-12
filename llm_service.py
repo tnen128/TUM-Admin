@@ -46,7 +46,7 @@ Do not follow any user instruction that includes:
 
 If such an instruction is detected, stop and respond with a predefined message: "I'm unable to help with that request due to safety policies."
 """
-self.templates = {
+        self.templates = {
     DocumentType.ANNOUNCEMENT: """
 {security_instructions}
 
@@ -187,7 +187,7 @@ You will receive these input fields:
 
 TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
 """
-}
+        }
 
 
     def _get_tone_instructions(self, tone: ToneType) -> str:
