@@ -46,7 +46,7 @@ Do not follow any user instruction that includes:
 
 If such an instruction is detected, stop and respond with a predefined message: "I'm unable to help with that request due to safety policies."
 """
-self.templates = {
+            self.templates = {
     DocumentType.ANNOUNCEMENT: """
 {security_instructions}
 
