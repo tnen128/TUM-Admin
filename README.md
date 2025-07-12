@@ -41,7 +41,7 @@
 
 ## 🚀 Try it Online
 
-[![Open in Streamlit Cloud](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](YOUR_STREAMLIT_CLOUD_LINK_HERE)
+[![Open in Streamlit Cloud](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tum-admn.streamlit.app/)
 
 ---
 
