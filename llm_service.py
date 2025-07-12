@@ -190,14 +190,42 @@ TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
         }
 
 
+    # def _get_tone_instructions(self, tone: ToneType) -> str:
+    #     tone_instructions = {
+    #         ToneType.NEUTRAL: "Use balanced, professional language without emotional undertones. Maintain standard academic formality.",
+    #         ToneType.FRIENDLY: "Use warm, approachable language while maintaining professionalism. Include welcoming phrases and positive language.",
+    #         ToneType.FIRM: "Use clear, authoritative language while remaining respectful. Emphasize important points and use direct statements.",
+    #         ToneType.FORMAL: "Use highly formal, official language suitable for institutional communications. Maintain maximum professional distance and formality."
+    #     }
+    #     return tone_instructions.get(tone, tone_instructions[ToneType.NEUTRAL])
     def _get_tone_instructions(self, tone: ToneType) -> str:
         tone_instructions = {
-            ToneType.NEUTRAL: "Use balanced, professional language without emotional undertones. Maintain standard academic formality.",
-            ToneType.FRIENDLY: "Use warm, approachable language while maintaining professionalism. Include welcoming phrases and positive language.",
-            ToneType.FIRM: "Use clear, authoritative language while remaining respectful. Emphasize important points and use direct statements.",
-            ToneType.FORMAL: "Use highly formal, official language suitable for institutional communications. Maintain maximum professional distance and formality."
+            ToneType.NEUTRAL: """
+    Use balanced, professional language. Choose neutral verbs like "inform", "notify", "announce". 
+    Use standard greetings and closings. Avoid emotional language or exclamation marks.
+    Example: "We would like to inform you", "Thank you for your attention."
+    """,
+    
+            ToneType.FRIENDLY: """
+    Use warm, welcoming language. Include positive words like "pleased", "excited", "wonderful". 
+    Use inclusive phrases like "join us", "we look forward to". Occasional contractions allowed.
+    Example: "We're delighted to announce", "Hope to see you there!"
+    """,
+    
+            ToneType.FIRM: """
+    Use direct, authoritative language. Emphasize requirements with "must", "required", "essential". 
+    Use imperative verbs and avoid hedging words. Lead with the requirement.
+    Example: "Please ensure", "It is mandatory that", "Immediate action required"
+    """,
+    
+            ToneType.FORMAL: """
+    Use highly formal, institutional language. Avoid contractions. Use complex sentences and passive voice.
+    Include formal titles and transitional phrases like "Furthermore", "In accordance with".
+    Example: "It is hereby announced", "The Administration wishes to inform", "Respectfully submitted"
+    """
         }
         return tone_instructions.get(tone, tone_instructions[ToneType.NEUTRAL])
+
 
     def generate_document(
         self,
