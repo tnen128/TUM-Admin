@@ -22,7 +22,7 @@ The system allows tone customization, supports editable previews, and provides q
 
 - **Tone Customization:** Neutral, Friendly, Polite, or Firm  
 - **Document Types:** Announcement, Student Communication, Meeting Summary  
-- **Language Options:** English, German (future support: Turkish, French)  
+- **Language Options:** English, German  
 - **Editable Preview:** Modify output before export  
 - **Export Formats:** PDF & Word  
 - **Response History:** Review and reuse previous outputs  
@@ -78,7 +78,7 @@ streamlit run app.py
 
 ## 📷 Demo Preview
 
-<img src="assets/interface_demo.png" width="700">
+<img src="assets/interface_demo.jpg" width="700">
 
 ---
 
