@@ -218,6 +218,7 @@ TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
         
         template = self.templates[doc_type]
         full_prompt = template.format(
+            security_instructions=self.security_instructions,
             prompt=prompt.strip(),
             tone=self._get_tone_instructions(tone),
             additional_context=additional_context.strip() if additional_context else "",
