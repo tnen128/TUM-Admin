@@ -3,7 +3,7 @@
   <img src="assets/TUM_Admin_logo.PNG" width="200" alt="TUM Admin Logo"/>
 </p>
 
-<h1 align="center">TUM Admin</h1>
+
 
 <p align="center">
   <b>AI-powered Document Generator for University Administration</b>
