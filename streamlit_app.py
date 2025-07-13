@@ -305,11 +305,7 @@ def render_chat():
                                 font-size: 16px;
                                 flex-shrink: 0;
                                 margin-right: 10px;">
-                        st.markdown(f"""
-<div style="...">
-    <img src="https://img.icons8.com/ios-filled/50/robot.png" width="24" />
-</div>
-""", unsafe_allow_html=True)
+                        🤖
                     </div>
                     <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
                                 color: #333; 
