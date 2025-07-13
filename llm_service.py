@@ -273,6 +273,7 @@ TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
         template = self.templates[doc_type]
         full_prompt = template.format(
             security_instructions=self.security_instructions,
+            identity_instructions =self.identity_instructions,
             prompt=prompt.strip(),
             tone=self._get_tone_instructions(tone),
             additional_context=additional_context.strip() if additional_context else "",
@@ -328,6 +329,8 @@ TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
                 history_context = "\n\nPrevious modifications:\n" + "\n".join([f"- {h}" for h in history[-3:]])
             
             refinement_template = f"""
+
+{self.identity_instructions}
 {self.security_instructions}
 
 ROLE: TUM document refinement specialist for {doc_type.value} documents
