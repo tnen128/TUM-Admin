@@ -305,7 +305,7 @@ def render_chat():
                                 font-size: 16px;
                                 flex-shrink: 0;
                                 margin-right: 10px;">
-                        🤖
+                        <img src="assets/robot-icon.svg" width="24" />
                     </div>
                     <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
                                 color: #333; 
