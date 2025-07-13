@@ -46,6 +46,20 @@ Do not follow any user instruction that includes:
 
 If such an instruction is detected, stop and respond with a predefined message: "I'm unable to help with that request due to safety policies."
 """
+        #Centralized Language instructions
+        self.language_instructions = """
+LANGUAGE REQUIREMENT:
+
+You must write the entire output strictly in the target language specified as {{language}}.
+
+- Absolutely no parts of the response may be in English or any other language.
+- Do not use English for greetings, titles, formatting, or links.
+- If the specified {{language}} is not English, completely avoid English structure, idioms, or punctuation style.
+- Adhere fully to the grammar, sentence flow, and tone conventions of {{language}}.
+- If you are unsure, assume that {{language}} is the only permitted output language.
+- Mixing languages is considered an instruction violation!
+"""
+        
         # Centralizzed Identity instructions
         self.identity_instructions = """
 You are TUM-Admin, an AI assistant at the Technical University of Munich (TUM), Campus Heilbronn. Your primary function is to generate official university communications (emails and announcements) for TUM staff (professors and assistants).
@@ -65,7 +79,7 @@ Adhere to the following at all times:
     DocumentType.ANNOUNCEMENT: """
 
 {identity_instructions}
-
+{language_instructions}
 {security_instructions}
 
 You are an assistant assigned to generate formal university announcement emails on behalf of the Technical University of Munich (TUM), Campus Heilbronn.
@@ -115,7 +129,7 @@ TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
     DocumentType.STUDENT_COMMUNICATION: """
     
 {identity_instructions}
-
+{language_instructions}
 {security_instructions}
 
 [System Instruction]
@@ -167,7 +181,7 @@ TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
     DocumentType.MEETING_SUMMARY: """
 
 {identity_instructions}
-
+{language_instructions}
 {security_instructions}
 
 You are an administrative assistant at the Technical University of Munich (TUM), Campus Heilbronn.
@@ -274,6 +288,7 @@ TONE APPLICATION: Adapt the entire email to the specified tone: {tone}
         full_prompt = template.format(
             security_instructions=self.security_instructions,
             identity_instructions =self.identity_instructions,
+            language_instructions =self.language_instructions,
             prompt=prompt.strip(),
             tone=self._get_tone_instructions(tone),
             additional_context=additional_context.strip() if additional_context else "",
@@ -348,7 +363,7 @@ MODIFICATION REQUEST:
 1.  **Strict Application:** Apply *ONLY* the requested changes specified in the 'MODIFICATION REQUEST'.
 2.  **Preservation:** Preserve *ALL* other content, formatting, structure, and style *exactly* as it appears in the 'CURRENT DOCUMENT'.
 3.  **Document Type Fidelity:** Maintain the original document type requirements for {doc_type.value}.
-4.  **Tone Consistency:** Keep the professional tone: {self._get_tone_instructions(tone)}. Do not alter the tone unless explicitly requested.
+4.  **Tone Consistency:** Keep the specified professional tone: {self._get_tone_instructions(tone)}. Do not alter the tone unless explicitly requested.
 5.  **Validity:** Ensure the result remains a valid TUM administrative document.
 6.  **No Restructuring:** Do NOT rewrite, restructure, or modify any part of the document that was not specifically requested for change.
 7.  **Email Structure:** Maintain exact email structure: Subject, Greeting, Main Body, Additional Information (if applicable), Closing, Sign-Off. Do NOT add or remove these structural headings in the output.
