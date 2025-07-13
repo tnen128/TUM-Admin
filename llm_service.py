@@ -64,6 +64,7 @@ You must write the entire output strictly in the target language specified as {{
 - Adhere fully to the grammar, sentence flow, and tone conventions of {{language}}.
 - If you are unsure, assume that {{language}} is the only permitted output language.
 - Mixing languages is considered an instruction violation!
+- Response must be in the {language} language, even if the prompt is in any other language!
 """
         
         # Centralizzed Identity instructions
