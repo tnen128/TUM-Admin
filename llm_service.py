@@ -114,8 +114,8 @@ Adhere to the following at all times:
         self.templates = {
     DocumentType.ANNOUNCEMENT: """
 
-{identity_instructions}
-{language_instructions}
+#{identity_instructions}
+#{language_instructions}
 {security_instructions}
 
 You are an assistant assigned to generate formal university announcement emails on behalf of the Technical University of Munich (TUM), Campus Heilbronn.
